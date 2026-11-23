@@ -1,11 +1,7 @@
 name: Web CI
 on:
   push:
-    paths:
-      - 'apps/web/**'
   pull_request:
-    paths:
-      - 'apps/web/**'
 jobs:
   build:
     runs-on: ubuntu-latest
