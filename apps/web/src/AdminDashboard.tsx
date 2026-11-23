@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
-  Activity, AlertCircle, ArrowDownRight, ArrowUpRight, Building2, Check, CheckCircle2,
+  Activity, AlertCircle, Building2, Check, CheckCircle2,
   ChevronRight, ClipboardCheck, Clock3, GraduationCap, LayoutDashboard, LogOut,
   Plus, RefreshCw, Search, ShieldCheck, Users, X, Pencil, History,
 } from 'lucide-react';
@@ -42,7 +42,7 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
   const [reviewNote, setReviewNote] = useState('');
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [userAssignments, setUserAssignments] = useState<Assignment[]>([]);
-  const [departmentId, setDepartmentId] = useState<string | null>(null);
+  const [departmentModalOpen, setDepartmentModalOpen] = useState(false);\n  const [departmentId, setDepartmentId] = useState<string | null>(null);
   const [departmentCode, setDepartmentCode] = useState('');
   const [departmentName, setDepartmentName] = useState('');
 
@@ -126,7 +126,7 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
   }
 
   function openDepartment(department?: Department) {
-    setDepartmentId(department?.id ?? null);
+    setDepartmentModalOpen(true);\n    setDepartmentId(department?.id ?? null);
     setDepartmentCode(department?.code ?? '');
     setDepartmentName(department?.name ?? '');
   }
@@ -248,14 +248,14 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
         <div className="admin-modal-actions"><button className="admin-secondary" onClick={() => setEditingUser(null)}>Annuler</button><button className="admin-primary" onClick={() => void saveUserAssignments()} disabled={busy}><Check size={16}/> Enregistrer</button></div>
       </Modal>}
 
-      {(departmentId !== null || departmentCode !== '' || departmentName !== '') && tab === 'departments' && <Modal title={departmentId ? 'Modifier le département' : 'Créer un département'} onClose={() => openDepartment()}>
-        <form onSubmit={saveDepartment}><label className="admin-field"><span>Code du département</span><input value={departmentCode} onChange={event => setDepartmentCode(event.target.value.toUpperCase())} maxLength={30} required placeholder="Ex. ATL"/></label><label className="admin-field"><span>Nom du département</span><input value={departmentName} onChange={event => setDepartmentName(event.target.value)} maxLength={120} required placeholder="Ex. Atlantique"/></label><div className="admin-modal-actions"><button type="button" className="admin-secondary" onClick={() => openDepartment()}>Annuler</button><button type="submit" className="admin-primary" disabled={busy}><Check size={16}/> Enregistrer</button></div></form>
+      {departmentModalOpen && tab === 'departments' && <Modal title={departmentId ? 'Modifier le département' : 'Créer un département'} onClose={() => { setDepartmentModalOpen(false); setDepartmentId(null); setDepartmentCode(''); setDepartmentName(''); }}>
+        <form onSubmit={saveDepartment}><label className="admin-field"><span>Code du département</span><input value={departmentCode} onChange={event => setDepartmentCode(event.target.value.toUpperCase())} maxLength={30} required placeholder="Ex. ATL"/></label><label className="admin-field"><span>Nom du département</span><input value={departmentName} onChange={event => setDepartmentName(event.target.value)} maxLength={120} required placeholder="Ex. Atlantique"/></label><div className="admin-modal-actions"><button type="button" className="admin-secondary" onClick={() => { setDepartmentModalOpen(false); setDepartmentId(null); setDepartmentCode(''); setDepartmentName(''); }}>Annuler</button><button type="submit" className="admin-primary" disabled={busy}><Check size={16}/> Enregistrer</button></div></form>
       </Modal>}
     </div>
   );
 }
 
-function Metric({ icon, label, value, hint, emphasis = false }: { icon: React.ReactNode; label: string; value: string; hint: string; emphasis?: boolean }) {
+function Metric({ icon, label, value, hint, emphasis = false }: { icon: ReactNode; label: string; value: string; hint: string; emphasis?: boolean }) {
   return <article className={emphasis ? 'admin-metric emphasis' : 'admin-metric'}><div className="admin-metric-top"><span>{label}</span><i>{icon}</i></div><strong>{value}</strong><small>{hint}</small></article>;
 }
 
@@ -281,6 +281,6 @@ function AssignmentEditor({ assignments, departments, onChange }: { assignments:
   </div>;
 }
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return <div className="admin-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><section className="admin-modal"><header><h3>{title}</h3><button className="admin-icon-button" onClick={onClose}><X size={17}/></button></header><div className="admin-modal-body">{children}</div></section></div>;
 }
