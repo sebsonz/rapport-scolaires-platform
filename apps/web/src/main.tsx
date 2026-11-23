@@ -1,5 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import DashboardApp from './Dashboard';
+import AuthApp from './AuthApp';
+import { AuthProvider } from './auth/AuthContext';
 import './styles.css';
-ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><DashboardApp /></React.StrictMode>);
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <AuthProvider>
+      <AuthApp />
+    </AuthProvider>
+  </React.StrictMode>,
+);
