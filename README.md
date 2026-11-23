@@ -33,20 +33,22 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-L'application reste en mode démonstration tant que la clé publique n'est pas renseignée et que l'authentification réelle n'est pas intégrée. La présence de l'URL seule ne signifie pas que les données sont connectées.
+L'application reste en mode démonstration tant que l'authentification réelle et les lectures/écritures Supabase ne sont pas intégrées. La présence de l'URL et de la clé publique seule ne signifie pas que les données sont connectées.
 
 ## Règles confirmées
-- Catégorie 1 : saisie A, B, C, D et F.
-- Catégorie 2 : saisie I, K et L.
+- Catégorie 1 : gestion des classes et saisie A, B, C, D et F ; les ratissages et corrections sont enregistrés dans le journal des opérations.
+- Catégorie 2 : enregistrement des livraisons initiales, livraisons après ratissage, premières remises après correction et réimpressions ; saisie des observations K et L.
 - Colonne G : administrateur central uniquement.
-- Colonnes E, H et J : calculées par le système d'après les formules observées dans le classeur.
+- Colonne I (total livré) : calculée par le système à partir des livraisons uniques ; elle n'est pas saisie directement.
+- Colonnes E, H et J : calculées par le système.
+- Les corrections de dossiers et les réimpressions sont comptabilisées séparément et ne gonflent pas les totaux uniques.
 - Lecture des rapports limitée aux départements affectés.
-- Un compte peut être affecté à plusieurs départements avec des rôles différents.
+- Un compte peut être affecté à plusieurs départements avec des rôles différents, y compris les deux catégories dans un même département.
 - Un rapport est conservé par groupe pédagogique et année scolaire.
 - Les bordereaux sont historisés et détaillés par promotion/groupe.
 
 ## Sécurité
-Les écritures des rapports passent par des fonctions PostgreSQL qui vérifient le rôle et les champs modifiables. Les tables n'accordent pas de droits d'écriture directs aux clients navigateur. Les contrôles de l'interface ne remplacent jamais les contrôles PostgreSQL.
+Les écritures des rapports et l'enregistrement des opérations passent par des fonctions PostgreSQL qui vérifient le rôle, le département et les limites métier. Les tables n'accordent pas de droits d'écriture directs aux clients navigateur. Les contrôles de l'interface ne remplacent jamais les contrôles PostgreSQL.
 
 ## Important
-Les migrations sont testées dans la CI sur PostgreSQL 16 avec des stubs Auth, mais elles ne sont pas encore appliquées à ce projet Supabase DEV. Ne pas les appliquer en production. Aucun compte, aucune école et aucun effectif fictif ne doit être importé comme donnée officielle.
+Les migrations sont testées dans la CI sur PostgreSQL avec des stubs Auth, mais elles ne sont pas encore appliquées à ce projet Supabase DEV. Ne pas les appliquer en production. Aucun compte, aucune école et aucun effectif fictif ne doit être importé comme donnée officielle.
