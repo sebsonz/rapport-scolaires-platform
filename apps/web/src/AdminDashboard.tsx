@@ -215,7 +215,22 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
               {filteredProfiles.map(user => {
                 const req = requests.find(item => item.user_id === user.user_id);
                 const userMemberships = memberships.filter(item => item.user_id === user.user_id);
-                return <tr key={user.user_id}><td><b>{user.full_name}</b><small>{user.email}</small></td><td><Status status={req?.status ?? 'PENDING'}/></td><td>{userMemberships.length === 0 ? <span className="muted">Aucune affectation</span> : <div className="admin-role-list">{userMemberships.map(m => <span key={m.id}>{m.role === 'CENTRAL_ADMIN' ? 'Administrateur central' : departmentById.get(m.department_id ?? '')?.name ?? 'Département'} · {m.role === 'CATEGORY_1' ? 'Catégorie 1' : m.role === 'CATEGORY_2' ? 'Catégorie 2' : 'Central'}</span>)}</div>}</td><td>{!userMemberships.some(m => m.role === 'CENTRAL_ADMIN') && req?.status === 'APPROVED' && <button className="admin-secondary small" onClick={() => editUser(user.user_id)}><Pencil size={14}/> Gérer</button>}</td></tr>;
+                const groupedMemberships = new Map<string, { departmentName: string; roles: string[]; central: boolean }>();
+                userMemberships.forEach(membership => {
+                  const key = membership.role === 'CENTRAL_ADMIN' ? 'central' : membership.department_id ?? 'unknown';
+                  const group = groupedMemberships.get(key) ?? {
+                    departmentName: membership.role === 'CENTRAL_ADMIN'
+                      ? 'Administrateur central'
+                      : departmentById.get(membership.department_id ?? '')?.name ?? 'Département',
+                    roles: [],
+                    central: membership.role === 'CENTRAL_ADMIN',
+                  };
+                  const roleLabel = membership.role === 'CATEGORY_1' ? 'Catégorie 1'
+                    : membership.role === 'CATEGORY_2' ? 'Catégorie 2' : 'Central';
+                  if (!group.roles.includes(roleLabel)) group.roles.push(roleLabel);
+                  groupedMemberships.set(key, group);
+                });
+                return <tr key={user.user_id}><td><b>{user.full_name}</b><small>{user.email}</small></td><td><Status status={req?.status ?? 'PENDING'}/></td><td>{userMemberships.length === 0 ? <span className="muted">Aucune affectation</span> : <div className="admin-role-list">{Array.from(groupedMemberships.entries()).map(([key, group]) => <span key={key}>{group.departmentName} · {group.roles.join(' · ')}</span>)}</div>}</td><td>{!userMemberships.some(m => m.role === 'CENTRAL_ADMIN') && req?.status === 'APPROVED' && <button className="admin-secondary small" onClick={() => editUser(user.user_id)}><Pencil size={14}/> Gérer</button>}</td></tr>;
               })}
             </tbody></table>{filteredProfiles.length === 0 && <Empty text="Aucun utilisateur correspondant."/>}</div>
           </section>}
