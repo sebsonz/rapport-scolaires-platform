@@ -92,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let active = true;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (active) void loadAccess(nextSession);
+      if (active) queueMicrotask(() => { if (active) void loadAccess(nextSession); });
     });
 
     void supabase.auth.getSession().then(({ data, error }) => {
