@@ -25,6 +25,7 @@ export default function SchoolClassAssignments({ memberships }: { memberships: M
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
+  const isCentralAdmin = memberships.some(item => item.role === 'CENTRAL_ADMIN');
   const departmentIds = useMemo(
     () => [...new Set(memberships.filter(item => item.department_id && item.role !== 'CENTRAL_ADMIN').map(item => item.department_id as string))],
     [memberships],
@@ -43,7 +44,7 @@ export default function SchoolClassAssignments({ memberships }: { memberships: M
     ]);
     const firstError = deptResult.error ?? schoolResult.error ?? yearResult.error ?? promotionResult.error ?? groupResult.error;
     if (firstError) setError(firstError.message);
-    const nextSchools = ((schoolResult.data ?? []) as School[]).filter(item => departmentIds.includes(item.department_id));
+    const nextSchools = ((schoolResult.data ?? []) as School[]).filter(item => isCentralAdmin || departmentIds.includes(item.department_id));
     setDepartments((deptResult.data ?? []) as Department[]);
     setSchools(nextSchools);
     setYears((yearResult.data ?? []) as SchoolYear[]);
@@ -53,7 +54,7 @@ export default function SchoolClassAssignments({ memberships }: { memberships: M
     setYearId(current => (yearResult.data ?? []).some((item: any) => item.id === current) ? current : ((yearResult.data?.[0] as SchoolYear | undefined)?.id ?? ''));
     setPromotionId(current => (promotionResult.data ?? []).some((item: any) => item.id === current) ? current : ((promotionResult.data?.[0] as Promotion | undefined)?.id ?? ''));
     setLoading(false);
-  }, [departmentIds]);
+  }, [departmentIds, isCentralAdmin]);
 
   useEffect(() => { void load(); }, [load]);
 
