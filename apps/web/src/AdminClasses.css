@@ -1,0 +1,18 @@
+.classes-admin{display:flex;flex-direction:column;gap:18px}
+.classes-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.classes-heading h3{margin:0 0 6px;font-size:18px}.classes-heading p{margin:0;color:var(--muted,#64748b);max-width:720px;line-height:1.55}
+.classes-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.classes-summary>div{padding:16px;border:1px solid var(--border,#e2e8f0);border-radius:12px;background:var(--surface,#fff);display:flex;flex-direction:column;gap:6px}
+.classes-summary span{font-size:12px;color:var(--muted,#64748b)}.classes-summary b{font-size:24px}
+.classes-filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.classes-filters select,.classes-search{min-height:40px;border:1px solid var(--border,#e2e8f0);border-radius:9px;background:var(--surface,#fff);padding:0 11px}
+.classes-filters select{color:inherit}.classes-search{display:flex;align-items:center;gap:8px;flex:1;min-width:220px;color:var(--muted,#64748b)}
+.classes-search input{border:0;outline:0;min-width:0;flex:1;background:transparent;color:inherit}
+.classes-actions{display:flex;align-items:center;gap:7px}.classes-message{padding:11px 13px;border-radius:9px;font-size:13px}.classes-message.error{background:#fef2f2;color:#b91c1c}.classes-message.success{background:#ecfdf5;color:#047857}
+.classes-modal-backdrop{position:fixed;inset:0;z-index:80;background:#0f172a80;display:grid;place-items:center;padding:20px}
+.classes-modal{width:min(560px,100%);max-height:90vh;overflow:auto;background:var(--surface,#fff);border:1px solid var(--border,#e2e8f0);border-radius:16px;box-shadow:0 24px 80px #0f172a33}
+.classes-modal>header{display:flex;justify-content:space-between;align-items:flex-start;padding:20px;border-bottom:1px solid var(--border,#e2e8f0)}
+.classes-modal h3{margin:0 0 5px}.classes-modal header p{margin:0;color:var(--muted,#64748b);font-size:13px;line-height:1.45}
+.classes-modal form{padding:20px}.classes-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.classes-modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:22px}
+@media(max-width:680px){.classes-heading{flex-direction:column}.classes-summary{grid-template-columns:1fr 1fr}.classes-form-grid{grid-template-columns:1fr}.classes-filters select{flex:1}}
