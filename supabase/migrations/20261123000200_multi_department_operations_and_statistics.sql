@@ -532,3 +532,45 @@ comment on column public.school_reports.report_data is
   'Workbook source fields A,B,C,D,F,G,K,L. D is initial enrollment; I is system-computed from unique delivery operations.';
 comment on column public.school_reports.system_data is
   'Calculated E=C-(D+enrollment ratissage), H=B, I=unique delivered total, J=actual enrollment equals unique delivered; corrections/reprints are separate.';
+
+
+-- Legacy delivery-slip endpoints must not be usable by Category 1 accounts.
+create or replace function public.guard_delivery_slip_category2()
+returns trigger language plpgsql security definer
+set search_path=public,pg_temp set row_security=off
+as $$
+declare v_department uuid;
+begin
+  select department_id into v_department from public.schools where id=new.school_id;
+  if v_department is null then raise exception 'Établissement introuvable'; end if;
+  if not public.is_central_admin()
+     and not public.has_department_role(v_department,'CATEGORY_2') then
+    raise exception 'Seule la Catégorie 2 peut enregistrer une livraison';
+  end if;
+  return new;
+end;
+$$;
+create trigger delivery_slips_category2_guard_trg
+before insert on public.delivery_slips
+for each row execute function public.guard_delivery_slip_category2();
+
+create or replace function public.guard_delivery_slip_line_category2()
+returns trigger language plpgsql security definer
+set search_path=public,pg_temp set row_security=off
+as $$
+declare v_department uuid;
+begin
+  select s.department_id into v_department
+  from public.delivery_slips d join public.schools s on s.id=d.school_id
+  where d.id=new.delivery_slip_id;
+  if v_department is null then raise exception 'Bordereau introuvable'; end if;
+  if not public.is_central_admin()
+     and not public.has_department_role(v_department,'CATEGORY_2') then
+    raise exception 'Seule la Catégorie 2 peut renseigner les quantités livrées';
+  end if;
+  return new;
+end;
+$$;
+create trigger delivery_slip_lines_category2_guard_trg
+before insert on public.delivery_slip_lines
+for each row execute function public.guard_delivery_slip_line_category2();
