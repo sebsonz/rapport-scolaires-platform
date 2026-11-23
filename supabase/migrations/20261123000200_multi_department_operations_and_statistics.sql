@@ -259,25 +259,45 @@ as $$
     where r.school_year_id=p_school_year_id
     group by s.department_id,r.id,r.report_data
   ),
+  school_counts as (
+    select department_id,count(*) as schools_count
+    from accessible_schools
+    group by department_id
+  ),
+  dept_reports as (
+    select
+      department_id,
+      count(report_id) as classes_count,
+      coalesce(sum(capacity),0) as total_effectif,
+      coalesce(sum(initial_enrolled),0) as enrollment_initial,
+      coalesce(sum(enrollment_ratisse),0) as enrollment_ratissage,
+      coalesce(sum(enrollment_corrections),0) as enrollment_corrections,
+      coalesce(sum(initial_enrolled+enrollment_ratisse),0) as total_enrolled,
+      coalesce(sum(delivery_initial),0) as delivery_initial,
+      coalesce(sum(delivery_ratisse),0) as delivery_ratissage,
+      coalesce(sum(delivery_correction_first_issue),0) as delivery_correction_first_issue,
+      coalesce(sum(delivery_reprints),0) as delivery_reprints
+    from report_totals
+    group by department_id
+  ),
   dept_rollup as (
     select
       d.id as department_id,
       d.name as department_name,
-      (select count(*) from accessible_schools a where a.department_id=d.id) as schools_count,
-      count(rt.report_id) as classes_count,
-      coalesce(sum(rt.capacity),0) as total_effectif,
-      coalesce(sum(rt.initial_enrolled),0) as enrollment_initial,
-      coalesce(sum(rt.enrollment_ratisse),0) as enrollment_ratissage,
-      coalesce(sum(rt.enrollment_corrections),0) as enrollment_corrections,
-      coalesce(sum(rt.initial_enrolled+rt.enrollment_ratisse),0) as total_enrolled,
-      coalesce(sum(rt.delivery_initial),0) as delivery_initial,
-      coalesce(sum(rt.delivery_ratisse),0) as delivery_ratissage,
-      coalesce(sum(rt.delivery_correction_first_issue),0) as delivery_correction_first_issue,
-      coalesce(sum(rt.delivery_reprints),0) as delivery_reprints
+      sc.schools_count,
+      coalesce(dr.classes_count,0) as classes_count,
+      coalesce(dr.total_effectif,0) as total_effectif,
+      coalesce(dr.enrollment_initial,0) as enrollment_initial,
+      coalesce(dr.enrollment_ratissage,0) as enrollment_ratissage,
+      coalesce(dr.enrollment_corrections,0) as enrollment_corrections,
+      coalesce(dr.total_enrolled,0) as total_enrolled,
+      coalesce(dr.delivery_initial,0) as delivery_initial,
+      coalesce(dr.delivery_ratissage,0) as delivery_ratissage,
+      coalesce(dr.delivery_correction_first_issue,0) as delivery_correction_first_issue,
+      coalesce(dr.delivery_reprints,0) as delivery_reprints
     from public.departments d
-    join accessible_schools a on a.department_id=d.id
-    left join report_totals rt on rt.department_id=d.id
-    group by d.id,d.name
+    join school_counts sc on sc.department_id=d.id
+    left join dept_reports dr on dr.department_id=d.id
   )
   select
     dr.department_id,dr.department_name,dr.schools_count,dr.classes_count,
