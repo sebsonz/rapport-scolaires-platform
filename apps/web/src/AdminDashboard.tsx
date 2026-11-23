@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
-  Activity, AlertCircle, Building2, Check, CheckCircle2,
+  Activity, AlertCircle, BookOpen, Building2, Check, CheckCircle2,
   ChevronRight, ClipboardCheck, Clock3, GraduationCap, LayoutDashboard, LogOut,
   Plus, RefreshCw, Search, ShieldCheck, Users, X, Pencil, History,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import type { UserProfile } from './auth/AuthContext';
 import AdminSchools from './AdminSchools';
+import AdminClasses from './AdminClasses';
 
 type Role = 'CATEGORY_1' | 'CATEGORY_2';
 type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -15,7 +16,7 @@ type Membership = { id: string; user_id: string; department_id: string | null; r
 type AccessRequest = { id: string; user_id: string; status: RequestStatus; requested_at: string; reviewed_at: string | null; review_note: string | null };
 type AuditEvent = { id: number; actor_user_id: string | null; department_id: string | null; event_type: string; entity_table: string; record_id: string | null; details: Record<string, unknown>; created_at: string };
 type Assignment = { department_id: string; role: Role };
-type Tab = 'overview' | 'requests' | 'users' | 'departments' | 'schools' | 'audit';
+type Tab = 'overview' | 'requests' | 'users' | 'departments' | 'schools' | 'classes' | 'audit';
 
 const labels: Record<Tab, string> = {
   overview: 'Vue générale',
@@ -23,6 +24,7 @@ const labels: Record<Tab, string> = {
   users: 'Utilisateurs',
   departments: 'Départements',
   schools: 'Écoles',
+  classes: 'Classes',
   audit: 'Journal d’audit',
 };
 
@@ -165,6 +167,7 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
             ['users', Users, 'Utilisateurs'],
             ['departments', Building2, 'Départements'],
             ['schools', GraduationCap, 'Écoles'],
+            ['classes', BookOpen, 'Classes'],
             ['audit', History, 'Journal d’audit'],
           ] as const).map(([key, Icon, label]) => (
             <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}><Icon size={17}/><span>{label}</span>{key === 'requests' && pendingRequests.length > 0 && <em>{pendingRequests.length}</em>}</button>
@@ -244,7 +247,8 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
             {departments.length === 0 && <Empty text="Aucun département créé. Ajoutez le premier département."/>}
           </section>}
 
-          {!loading && tab === 'schools' && <AdminSchools departments={departments}/>} 
+          {!loading && tab === 'schools' && <AdminSchools departments={departments}/>}
+          {!loading && tab === 'classes' && <AdminClasses/>}
 
           {!loading && tab === 'audit' && <section className="admin-panel">
             <div className="admin-panel-head"><div><h3>Journal d’audit</h3><p>Historique des opérations administratives récentes (100 dernières entrées).</p></div><span className="admin-count">{audit.length} événements</span></div>
