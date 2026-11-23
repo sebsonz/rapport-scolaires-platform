@@ -28,6 +28,7 @@ export default function AdminSchools({ departments }: { departments: Department[
   const [departmentFilter, setDepartmentFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [editing, setEditing] = useState<School | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<SchoolForm>(emptyForm(departments[0]?.id ?? ''));
 
   const load = useCallback(async () => {
@@ -54,6 +55,7 @@ export default function AdminSchools({ departments }: { departments: Department[
 
   function openForm(school?: School) {
     setEditing(school ?? null);
+    setModalOpen(true);
     setForm(school ? {
       department_id: school.department_id, code: school.code, name: school.name,
       commune: school.commune, arrondissement: school.arrondissement ?? '',
@@ -83,6 +85,7 @@ export default function AdminSchools({ departments }: { departments: Department[
     if (rpcError) { setError(rpcError.message); return; }
     setNotice(editing ? 'École mise à jour.' : 'École créée.');
     setEditing(null);
+    setModalOpen(false);
     await load();
   }
 
@@ -130,14 +133,13 @@ export default function AdminSchools({ departments }: { departments: Department[
           <td><div className="school-actions"><button className="admin-secondary small" onClick={() => openForm(school)}><Pencil size={13}/> Modifier</button><button className="admin-icon-button" disabled={busy} onClick={() => void toggleStatus(school)} title={school.is_active ? 'Désactiver' : 'Activer'}><Power size={14}/></button></div></td>
         </tr>)}
       </tbody></table></div>}
-    {editing !== null || form.code !== '' ? null : null}
-    {(editing || form.code !== '__closed__') && <div className="schools-modal-backdrop" hidden={!editing && !notice && form.code === '__closed__'}>
-      <section className="schools-modal" hidden={!editing && !notice && form.code === '__closed__'}>
-        <header><div><h3>{editing ? 'Modifier une école' : 'Créer une école'}</h3><p>Rattachez obligatoirement l’établissement à un département.</p></div><button className="admin-icon-button" onClick={() => { setEditing(null); setForm({...emptyForm(), code:'__closed__'}); }}><X size={16}/></button></header>
+    {modalOpen && <div className="schools-modal-backdrop">
+      <section className="schools-modal">
+        <header><div><h3>{editing ? 'Modifier une école' : 'Créer une école'}</h3><p>Rattachez obligatoirement l’établissement à un département.</p></div><button className="admin-icon-button" onClick={() => { setEditing(null); setModalOpen(false); }}><X size={16}/></button></header>
         <form onSubmit={save}>
           <div className="schools-form-grid">
             <label className="admin-field wide"><span>Département *</span><select value={form.department_id} onChange={event => setForm({...form,department_id:event.target.value})} required><option value="">Choisir un département</option>{departments.map(dept => <option key={dept.id} value={dept.id}>{dept.name} ({dept.code})</option>)}</select></label>
-            <label className="admin-field"><span>Code école *</span><input value={form.code === '__closed__' ? '' : form.code} onChange={event => setForm({...form,code:event.target.value.toUpperCase()})} maxLength={30} required placeholder="Ex. ATL-001"/></label>
+            <label className="admin-field"><span>Code école *</span><input value={form.code} onChange={event => setForm({...form,code:event.target.value.toUpperCase()})} maxLength={30} required placeholder="Ex. ATL-001"/></label>
             <label className="admin-field"><span>Nom de l’école *</span><input value={form.name} onChange={event => setForm({...form,name:event.target.value})} maxLength={160} required placeholder="Nom officiel"/></label>
             <label className="admin-field"><span>Commune *</span><input value={form.commune} onChange={event => setForm({...form,commune:event.target.value})} maxLength={120} required/></label>
             <label className="admin-field"><span>Arrondissement</span><input value={form.arrondissement} onChange={event => setForm({...form,arrondissement:event.target.value})} maxLength={120}/></label>
@@ -145,7 +147,7 @@ export default function AdminSchools({ departments }: { departments: Department[
             <label className="admin-field"><span>Téléphone</span><input value={form.phone} onChange={event => setForm({...form,phone:event.target.value})} maxLength={40}/></label>
             <label className="admin-field"><span>Directeur / Directrice</span><input value={form.director_name} onChange={event => setForm({...form,director_name:event.target.value})} maxLength={160}/></label>
           </div>
-          <div className="schools-modal-actions"><button type="button" className="admin-secondary" onClick={() => { setEditing(null); setForm({...emptyForm(), code:'__closed__'}); }}>Annuler</button><button type="submit" className="admin-primary" disabled={busy || departments.length === 0}><Check size={15}/> Enregistrer</button></div>
+          <div className="schools-modal-actions"><button type="button" className="admin-secondary" onClick={() => { setEditing(null); setModalOpen(false); }}>Annuler</button><button type="submit" className="admin-primary" disabled={busy || departments.length === 0}><Check size={15}/> Enregistrer</button></div>
         </form>
       </section>
     </div>}
