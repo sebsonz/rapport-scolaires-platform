@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
-  Activity, Bell, BookOpen, Building2, CheckCircle2, ClipboardList, GraduationCap,
+  Activity, BookOpen, Building2, CheckCircle2, ClipboardList, GraduationCap,
   History, LogOut, PackageCheck, RefreshCw, Truck, Users,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -48,7 +48,6 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   const departmentIds = useMemo(() => [...new Set(memberships
     .filter(item => item.department_id && item.role !== 'CENTRAL_ADMIN')
     .map(item => item.department_id as string))], [memberships]);
-  const roles = useMemo(() => new Set(memberships.map(item => item.role)), [memberships]);
   const canEnrollment = roles.has('CATEGORY_1') || roles.has('CENTRAL_ADMIN');
   const canDelivery = roles.has('CATEGORY_2') || roles.has('CENTRAL_ADMIN');
 
@@ -134,7 +133,6 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   [rows]);
 
   const currentRow = rows.find(r => r.group.id === selectedGroup);
-  const selectedGroupName = currentRow ? `${currentRow.promotion?.code ?? 'Classe'} · ${currentRow.group.group_code}` : '';
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
