@@ -131,7 +131,7 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
     setDepartmentName(department?.name ?? '');
   }
 
-  async function saveDepartment(event: React.FormEvent<HTMLFormElement>) {
+  async function saveDepartment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) return;
     setBusy(true); setError(''); setNotice('');
@@ -143,7 +143,7 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
     setBusy(false);
     if (rpcError) { setError(rpcError.message); return; }
     setNotice(departmentId ? 'Département mis à jour.' : 'Département créé.');
-    setDepartmentId(null); setDepartmentCode(''); setDepartmentName('');
+    setDepartmentModalOpen(false); setDepartmentId(null); setDepartmentCode(''); setDepartmentName('');
     await load();
   }
 
