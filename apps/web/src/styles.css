@@ -23,7 +23,7 @@
 .auth-input input::placeholder{color:#a0adbd}
 .auth-primary,.auth-secondary{width:100%;min-height:44px;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:9px;font:700 12px 'DM Sans';cursor:pointer}
 .auth-primary{margin-top:3px;border:0;background:#155bc0;color:#fff}
-.auth-primary:hover{background:#104d a5}
+.auth-primary:hover{background:#104da5}
 .auth-primary:disabled{opacity:.65;cursor:wait}
 .auth-primary svg{width:16px;height:16px}
 .auth-secondary{margin-top:18px;border:1px solid #dce5f0;background:#f8faff;color:#355a88}
