@@ -29,7 +29,6 @@ export default function SchoolClassAssignments({ memberships }: { memberships: M
     () => [...new Set(memberships.filter(item => item.department_id && item.role !== 'CENTRAL_ADMIN').map(item => item.department_id as string))],
     [memberships],
   );
-  const canConfigure = memberships.some(item => item.role === 'CENTRAL_ADMIN' || item.role === 'CATEGORY_1');
 
   const load = useCallback(async () => {
     if (!supabase) return;
@@ -60,7 +59,6 @@ export default function SchoolClassAssignments({ memberships }: { memberships: M
 
   const departmentById = useMemo(() => new Map(departments.map(item => [item.id, item])), [departments]);
   const schoolById = useMemo(() => new Map(schools.map(item => [item.id, item])), [schools]);
-  const yearById = useMemo(() => new Map(years.map(item => [item.id, item])), [years]);
   const promotionById = useMemo(() => new Map(promotions.map(item => [item.id, item])), [promotions]);
   const visibleGroups = useMemo(
     () => groups.filter(item => item.school_id === schoolId && item.school_year_id === yearId),
