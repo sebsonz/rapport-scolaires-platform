@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { BookOpen, Building2, ChartNoAxesCombined, ClipboardList, FileText, GraduationCap, LayoutDashboard, LogOut, Search, ShieldCheck, Truck, Users } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Building2, ChartNoAxesCombined, FileText, GraduationCap, LayoutDashboard, LogOut, Search, ShieldCheck, Truck, Users } from 'lucide-react';
 type Page = 'dashboard'|'schools'|'reports'|'deliveries'|'statistics'|'admin';
 type Role = 'CENTRAL_ADMIN'|'CATEGORY_1'|'CATEGORY_2';
 const schools=[{id:'s1',name:'CEG L’Entente',department:'Littoral',code:'LIT-001',enrolled:842},{id:'s2',name:'CEG Sainte-Rita',department:'Littoral',code:'LIT-002',enrolled:713},{id:'s3',name:'CEG Akpakpa',department:'Littoral',code:'LIT-003',enrolled:925}];
@@ -17,5 +17,5 @@ export default function App(){
  {page==='admin'&&<div className="two-col"><section className="panel"><h2>Gestion des accès</h2><p>Profils proposés pour les essais.</p><div className="permission"><ShieldCheck/><span><b>Administrateur central</b><small>Tous départements et tous champs.</small></span></div><div className="permission"><Users/><span><b>Catégorie 1</b><small>Écriture A, B, C, D et F.</small></span></div><div className="permission"><Users/><span><b>Catégorie 2</b><small>Écriture I, K et L.</small></span></div><div className="permission"><ShieldCheck/><span><b>Colonne G</b><small>Réservée à l’administrateur central.</small></span></div></section><section className="panel"><h2>Configuration</h2><div className="config"><span>Base Supabase</span><b>À connecter</b></div><div className="config"><span>Authentification</span><b>À connecter</b></div><div className="config"><span>Journal d’audit</span><b>Schéma initial à appliquer</b></div></section></div>}
  <footer>Rapports scolaires · Version de test 0.1.0 <span>Architecture modulaire · Sécurité à valider en base</span></footer></div></main></div>
 }
-function Stat({icon,label,value}:{icon:React.ReactNode;label:string;value:string}){return <div className="stat"><div><span>{label}</span><i>{icon}</i></div><strong>{value}</strong><small>Chiffre fictif de démonstration</small></div>}
+function Stat({icon,label,value}:{icon:ReactNode;label:string;value:string}){return <div className="stat"><div><span>{label}</span><i>{icon}</i></div><strong>{value}</strong><small>Chiffre fictif de démonstration</small></div>}
 function Progress({label,value,width}:{label:string;value:string;width:string}){return <div className="progress-row"><div><span>{label}</span><b>{value}</b></div><div className="bar"><i style={{width}}/></div></div>}
