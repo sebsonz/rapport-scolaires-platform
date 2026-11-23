@@ -50,7 +50,7 @@ export function calculateClassMetrics(
     deliveredUnique,
     deliveryRemaining,
     enrollmentRate: capacity === 0 || enrolledTotal > capacity ? null : (enrolledTotal / capacity) * 100,
-    deliveryRate: enrolledTotal === 0 || deliveredUnique > enrolledTotal ? null : (deliveredUnique / enrolledTotal) * 100,
+    deliveryRate: enrolledTotal === 0 || deliveredUnique > enrolledTotal || enrolledTotal > capacity ? null : (deliveredUnique / enrolledTotal) * 100,
     anomalies,
   };
 }
