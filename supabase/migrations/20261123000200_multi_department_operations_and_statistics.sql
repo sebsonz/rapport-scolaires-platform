@@ -146,19 +146,19 @@ begin
   v_role_ok := public.is_central_admin() or public.has_department_role(v_department,v_required_role);
   if not v_role_ok then raise exception 'Droit insuffisant pour cette opération'; end if;
 
-  -- Idempotency lookup occurs only after department and role authorization.
-  select o.* into v_result
-  from public.school_report_operations o
-  where o.idempotency_key=p_idempotency_key
-    and o.department_id=v_department;
-  if found then return v_result; end if;
-
   select * into v_report
   from public.school_reports r
   where r.pedagogical_group_id=p_pedagogical_group_id
   for update;
 
   if not found then raise exception 'La classe doit d''abord être créée et enregistrée par la Catégorie 1'; end if;
+
+  -- Idempotency lookup occurs only after department and role authorization.
+  select o.* into v_result
+  from public.school_report_operations o
+  where o.idempotency_key=p_idempotency_key
+    and o.department_id=v_department;
+  if found then return v_result; end if;
 
   v_capacity := coalesce(nullif(v_report.report_data->>'C','')::integer,0);
   v_initial := coalesce(nullif(v_report.report_data->>'D','')::integer,0);
@@ -574,3 +574,16 @@ $$;
 create trigger delivery_slip_lines_category2_guard_trg
 before insert on public.delivery_slip_lines
 for each row execute function public.guard_delivery_slip_line_category2();
+
+
+-- The operation ledger is append-only; corrections are new audited events, never destructive edits.
+create or replace function public.prevent_school_report_operation_mutation()
+returns trigger language plpgsql
+as $$
+begin
+  raise exception 'Le journal des opérations est immuable; ajoutez une nouvelle opération de régularisation';
+end;
+$$;
+create trigger school_report_operations_immutable_trg
+before update or delete on public.school_report_operations
+for each row execute function public.prevent_school_report_operation_mutation();
