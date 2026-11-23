@@ -2,11 +2,14 @@
 
 ## 1. Périmètre et responsabilités
 
-- Le tableau de bord est commun à Catégorie 1 et Catégorie 2.
-- Catégorie 1 crée les classes et renseigne l'effectif total, l'enrôlement initial, les ratissages et les corrections de dossiers.
-- Catégorie 2 ne crée pas de classe : elle sélectionne une classe déjà créée et enregistre les livraisons initiales, les livraisons après ratissage, les premières remises après correction et les réimpressions.
+- Le référentiel national des classes/promotions possibles est créé et géré exclusivement par l’administration centrale.
+- Le référentiel national n’est rattaché à aucune école : une classe catalogue décrit un niveau possible, pas une classe réellement ouverte dans un établissement.
+- Catégorie 1 sélectionne, dans son rapport, les classes du référentiel qui existent réellement dans son établissement et renseigne l’effectif total, l’enrôlement initial, les ratissages et les corrections de dossiers.
+- Les groupes pédagogiques réellement présents dans une école restent propres à l’établissement, à l’année scolaire et à la classe catalogue sélectionnée.
+- Catégorie 2 ne crée pas de classe : elle sélectionne une classe déjà présente dans le rapport et enregistre les livraisons initiales, les livraisons après ratissage, les premières remises après correction et les réimpressions.
 - Les corrections de dossiers ne sont pas de nouveaux enrôlements.
 - Les réimpressions/remplacements de cartes déjà remises ne sont pas de nouvelles livraisons uniques.
+- Une classe catalogue désactivée n’est plus proposée pour de nouvelles sélections, mais reste conservée pour l’historique des rapports existants.
 
 ## 2. Calculs officiels par classe
 
