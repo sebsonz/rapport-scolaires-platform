@@ -55,3 +55,5 @@ jobs:
             echo "Applying $migration"
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
           done
+      - name: Test multi-department and operation rules
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/multi_department_operations_smoke.sql
