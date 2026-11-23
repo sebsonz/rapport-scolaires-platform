@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Building2, Check, MapPin, Pencil, Plus, Power, RefreshCw, Search, X } from 'lucide-react';
+import { Check, Pencil, Plus, Power, RefreshCw, Search, X } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './AdminSchools.css';
 
