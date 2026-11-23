@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Activity, AlertTriangle, BarChart3, Bell, BookOpen, Building2, CheckCircle2, ChevronDown, ClipboardList, FileText, GraduationCap, LayoutDashboard, Plus, RefreshCw, Save, Search, Settings, ShieldCheck, Truck, UserCog, Users } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, Building2, ChartNoAxesCombined, CheckCircle2, ClipboardList, GraduationCap, LayoutDashboard, RefreshCw, Save, Search, ShieldCheck, Truck, Users } from 'lucide-react';
 import { calculateClassMetrics, calculateDepartmentTotals } from './domain/metrics';
 
 type Role='CENTRAL_ADMIN'|'CATEGORY_1'|'CATEGORY_2';
