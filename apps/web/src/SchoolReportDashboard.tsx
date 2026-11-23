@@ -51,7 +51,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   const canEnrollment = roles.has('CATEGORY_1') || roles.has('CENTRAL_ADMIN');
   const canDelivery = roles.has('CATEGORY_2') || roles.has('CENTRAL_ADMIN');
 
-  const load = useCallback(async (keepSchool = true) => {
+  const load = useCallback(async (keepSchool = true, requestedSchoolId?: string) => {
     if (!supabase) { setError('La connexion Supabase est indisponible.'); setLoading(false); return; }
     setLoading(true); setError('');
     const [schoolResult, yearResult, promotionResult] = await Promise.all([
@@ -66,8 +66,9 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     setSchools(visibleSchools);
     setYear(activeYear);
     setPromotions((promotionResult.data ?? []) as Promotion[]);
-    const currentSchool = keepSchool && visibleSchools.some(s => s.id === schoolId)
-      ? schoolId : (visibleSchools[0]?.id ?? '');
+    const preferredSchoolId = requestedSchoolId ?? schoolId;
+    const currentSchool = keepSchool && visibleSchools.some(s => s.id === preferredSchoolId)
+      ? preferredSchoolId : (visibleSchools[0]?.id ?? '');
     setSchoolId(currentSchool);
     if (!currentSchool || !activeYear) {
       setGroups([]); setReports([]); setOperations([]); setLoading(false); return;
@@ -96,7 +97,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     setLoading(false);
   }, [departmentIds, schoolId]);
 
-  useEffect(() => { void load(false); }, [load]);
+  useEffect(() => { void load(false); }, [departmentIds]);
 
   const school = schools.find(item => item.id === schoolId);
   const reportByGroup = useMemo(() => new Map(reports.map(r => [r.pedagogical_group_id, r])), [reports]);
@@ -132,7 +133,6 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     deliveredInitial: 0, deliveredRatissage: 0, deliveredCorrection: 0, enrollmentRemaining: 0, deliveryRemaining: 0 }),
   [rows]);
 
-  const currentRow = rows.find(r => r.group.id === selectedGroup);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -189,7 +189,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       <header className="report-topbar">
         <div><h1>Tableau de bord — Rapports scolaires</h1><p>Suivi de l’enrôlement et de la livraison · {school?.name ?? 'Établissement'}</p></div>
         <div className="report-context">
-          {schools.length > 1 && <label><Building2/><select value={schoolId} onChange={e => setSchoolId(e.target.value)}>{schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
+          {schools.length > 1 && <label><Building2/><select value={schoolId} onChange={e => { setSchoolId(e.target.value); void load(true, e.target.value); }}>{schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
           <span><BookOpen/> {year?.label ?? 'Aucune année active'}</span>
           <button onClick={() => void load()} disabled={loading}><RefreshCw/></button>
         </div>
