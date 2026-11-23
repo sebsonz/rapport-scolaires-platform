@@ -47,3 +47,13 @@ Les deux taux doivent rester entre 0 et 100 %. Une valeur supérieure à 100 % e
 La migration `20261123000200_multi_department_operations_and_statistics.sql` ajoute le registre des opérations, les rôles multiples par département, les contrôles de capacité, la RPC d'enregistrement, l'affectation de rôles et la situation statistique par département.
 
 La connexion Supabase, l'application de la migration et les tests SQL sur un projet DEV restent des étapes distinctes. Ne pas appliquer cette migration en production avant validation.
+
+## 6. Affectation des classes aux établissements
+
+- La Catégorie 1 sélectionne les classes réellement présentes dans son établissement à partir du catalogue national actif.
+- La sélection est enregistrée par établissement, année scolaire, classe du catalogue et groupe pédagogique.
+- Le modèle existant `pedagogical_groups` est réutilisé : aucune table parallèle d’affectation des classes n’est créée.
+- Le code du groupe pédagogique est unique pour une combinaison établissement + année scolaire + classe catalogue.
+- Une sélection est autorisée uniquement pour un établissement actif, une année scolaire active, une classe catalogue active et un département où l’utilisateur possède le rôle Catégorie 1.
+- La Catégorie 2 consulte les classes déjà configurées, sans pouvoir les créer.
+- Les groupes déjà utilisés dans des rapports sont conservés pour l’historique.
