@@ -128,11 +128,6 @@ begin
   if p_quantity is null or p_quantity <= 0 then raise exception 'La quantité doit être un entier positif'; end if;
   if p_idempotency_key is null then raise exception 'Une clé anti-doublon est obligatoire'; end if;
 
-  select o.* into v_result
-  from public.school_report_operations o
-  where o.idempotency_key=p_idempotency_key;
-  if found then return v_result; end if;
-
   select g.school_id,g.school_year_id,s.department_id
     into v_school,v_year,v_department
   from public.pedagogical_groups g
@@ -150,6 +145,13 @@ begin
   end if;
   v_role_ok := public.is_central_admin() or public.has_department_role(v_department,v_required_role);
   if not v_role_ok then raise exception 'Droit insuffisant pour cette opération'; end if;
+
+  -- Idempotency lookup occurs only after department and role authorization.
+  select o.* into v_result
+  from public.school_report_operations o
+  where o.idempotency_key=p_idempotency_key
+    and o.department_id=v_department;
+  if found then return v_result; end if;
 
   select * into v_report
   from public.school_reports r
