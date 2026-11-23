@@ -105,7 +105,7 @@ begin
         as x(department_id uuid, role text)
     loop
       if v_assignment.department_id is null
-         or v_assignment.role not in ('CATEGORY_1','CATEGORY_2') then
+         or coalesce(v_assignment.role,'') not in ('CATEGORY_1','CATEGORY_2') then
         raise exception 'Affectation invalide: seuls CATEGORY_1 et CATEGORY_2 sont autorisés';
       end if;
       if not exists(select 1 from public.departments d where d.id=v_assignment.department_id) then
@@ -177,6 +177,9 @@ begin
   if not exists(select 1 from public.user_profiles where user_id=p_user_id) then
     raise exception 'Utilisateur introuvable';
   end if;
+  if not exists(select 1 from public.access_requests where user_id=p_user_id and status='APPROVED') then
+    raise exception 'Seuls les comptes approuvés peuvent recevoir des affectations';
+  end if;
 
   for v_assignment in
     select department_id, role
@@ -184,7 +187,7 @@ begin
       as x(department_id uuid, role text)
   loop
     if v_assignment.department_id is null
-       or v_assignment.role not in ('CATEGORY_1','CATEGORY_2')
+       or coalesce(v_assignment.role,'') not in ('CATEGORY_1','CATEGORY_2')
        or not exists(select 1 from public.departments where id=v_assignment.department_id) then
       raise exception 'Affectation invalide';
     end if;
