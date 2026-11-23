@@ -46,7 +46,7 @@ begin
     raise exception 'Établissement introuvable ou inactif';
   end if;
 
-  if not public.has_department_role(v_department_id, 'CATEGORY_1') then
+  if not (public.is_central_admin() or public.has_department_role(v_department_id, 'CATEGORY_1')) then
     raise exception 'Droit Catégorie 1 requis pour configurer les classes de cet établissement';
   end if;
 
