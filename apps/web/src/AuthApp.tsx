@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { ArrowRight, CheckCircle2, GraduationCap, LockKeyhole, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { useAuth } from './auth/AuthContext';
 import AdminDashboard from './AdminDashboard';
+import SchoolClassAssignments from './SchoolClassAssignments';
+import './DepartmentWorkspace.css';
 
 type View = 'LOGIN' | 'SIGNUP';
 
@@ -76,7 +78,7 @@ export default function AuthApp() {
       return <main className="auth-page"><section className="auth-card"><AuthBrand/><div className="auth-status-icon pending"><CheckCircle2/></div><h1>Validation effectuée</h1><p className="auth-subtitle">Ton compte est approuvé, mais aucune affectation à un département ne lui est encore associée. Contacte l’administration centrale.</p><button className="auth-secondary" onClick={() => void signOut()}>Se déconnecter</button></section></main>;
     }
 
-    return <main className="auth-page"><section className="auth-card"><AuthBrand/><div className="auth-status-icon approved"><CheckCircle2/></div><h1>Accès autorisé</h1><p className="auth-subtitle">Bonjour {profile?.full_name ?? ''}. Ton compte est validé et possède {memberships.length} affectation(s).</p><div className="auth-alert info">L’espace de travail sera raccordé aux données réelles dans le prochain lot. Aucune donnée de démonstration ne sera affichée.</div><button className="auth-secondary" onClick={() => void signOut()}>Se déconnecter</button></section></main>;
+    return <main className="department-workspace"><header className="department-workspace-header"><div><AuthBrand/><p>Bonjour {profile?.full_name ?? ''} · Espace de travail autorisé</p></div><button className="auth-secondary" onClick={() => void signOut()}>Se déconnecter</button></header><div className="department-workspace-content"><SchoolClassAssignments memberships={memberships}/></div></main>;
   }
 
   return (
