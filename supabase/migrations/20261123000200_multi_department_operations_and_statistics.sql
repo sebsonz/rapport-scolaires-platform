@@ -346,3 +346,187 @@ comment on table public.school_report_operations is
   'Journal immuable des enrôlements complémentaires, corrections de dossiers, livraisons uniques et réimpressions.';
 comment on column public.school_memberships.role is
   'Rôle attribué par département; un utilisateur peut cumuler plusieurs départements et plusieurs catégories.';
+
+
+-- Replace the initial role-priority RPC: field permissions are checked independently,
+-- so a user holding both category roles in one department can perform both workflows.
+create or replace function public.save_school_report(p_pedagogical_group_id uuid,p_changes jsonb)
+returns public.school_reports language plpgsql security definer
+set search_path=public,pg_temp set row_security=off
+as $$
+declare
+  v_school uuid; v_department uuid; v_report public.school_reports; v_key text;
+begin
+  if auth.uid() is null then raise exception 'Authentification requise'; end if;
+  if jsonb_typeof(p_changes)<>'object' or p_changes='{}'::jsonb then
+    raise exception 'Un objet JSON non vide est obligatoire';
+  end if;
+
+  select g.school_id,s.department_id into v_school,v_department
+  from public.pedagogical_groups g
+  join public.schools s on s.id=g.school_id
+  where g.id=p_pedagogical_group_id and s.is_active=true;
+  if v_department is null or not public.has_department_access(v_department) then
+    raise exception 'Accès au département refusé';
+  end if;
+
+  for v_key in select jsonb_object_keys(p_changes) loop
+    if v_key not in ('A','B','C','D','E','F','G','H','I','J','K','L') then
+      raise exception 'Champ inconnu: %',v_key;
+    end if;
+    if v_key in ('E','H','I','J') then
+      raise exception 'Le champ % est calculé par le système',v_key;
+    end if;
+    if v_key='G' and not public.is_central_admin() then
+      raise exception 'Le champ G est réservé à l''administrateur central';
+    end if;
+    if v_key in ('A','B','C','D','F')
+       and not public.is_central_admin()
+       and not public.has_department_role(v_department,'CATEGORY_1') then
+      raise exception 'Droit Catégorie 1 requis pour le champ %',v_key;
+    end if;
+    if v_key in ('K','L')
+       and not public.is_central_admin()
+       and not public.has_department_role(v_department,'CATEGORY_2') then
+      raise exception 'Droit Catégorie 2 requis pour le champ %',v_key;
+    end if;
+  end loop;
+
+  insert into public.school_reports as existing(
+    school_id,school_year_id,pedagogical_group_id,report_data,created_by,updated_by
+  )
+  select g.school_id,g.school_year_id,g.id,p_changes,auth.uid(),auth.uid()
+  from public.pedagogical_groups g
+  where g.id=p_pedagogical_group_id
+  on conflict(pedagogical_group_id) do update
+    set report_data=existing.report_data||excluded.report_data,
+        updated_by=auth.uid(),updated_at=now()
+  returning * into v_report;
+
+  insert into public.audit_events(
+    actor_user_id,department_id,school_id,event_type,entity_table,record_id,details
+  ) values (
+    auth.uid(),v_department,v_school,'REPORT_FIELDS_SAVED','school_reports',v_report.id::text,
+    jsonb_build_object('changed_fields',
+      coalesce((select jsonb_agg(k) from jsonb_object_keys(p_changes) as keys(k)),'[]'::jsonb))
+  );
+  return v_report;
+end;
+$$;
+revoke all on function public.save_school_report(uuid,jsonb) from public,anon;
+grant execute on function public.save_school_report(uuid,jsonb) to authenticated;
+
+-- System values are recalculated from the enrollment base and immutable operation ledger.
+-- E = capacity - (initial enrollment + ratissage); I = unique deliveries;
+-- corrections/reprints remain separate; J compares actual enrolled and uniquely delivered.
+create or replace function public.refresh_school_report_system_data()
+returns trigger language plpgsql
+set search_path=public,pg_temp
+as $$
+declare
+  v_capacity integer;
+  v_initial integer;
+  v_ratisse integer;
+  v_delivered integer;
+  v_enrolled integer;
+begin
+  v_capacity := coalesce(nullif(new.report_data->>'C','')::integer,0);
+  v_initial := coalesce(nullif(new.report_data->>'D','')::integer,0);
+
+  select coalesce(sum(quantity),0)::integer into v_ratisse
+  from public.school_report_operations
+  where school_report_id=new.id and operation_type='ENROLLMENT_RATISSAGE';
+
+  select coalesce(sum(quantity),0)::integer into v_delivered
+  from public.school_report_operations
+  where school_report_id=new.id
+    and operation_type in ('DELIVERY_INITIAL','DELIVERY_RATISSAGE','DELIVERY_CORRECTION_FIRST_ISSUE');
+
+  v_enrolled := v_initial+v_ratisse;
+  new.system_data := jsonb_build_object(
+    'E',v_capacity-v_enrolled,
+    'H',new.report_data->'B',
+    'I',v_delivered,
+    'J',case when v_enrolled=0 and v_delivered=0 then to_jsonb(''::text)
+             else to_jsonb(v_enrolled=v_delivered) end,
+    'total_enrolled',v_enrolled,
+    'total_delivered_unique',v_delivered,
+    'enrollment_corrections',(
+      select coalesce(sum(quantity),0) from public.school_report_operations
+      where school_report_id=new.id and operation_type='ENROLLMENT_CORRECTION'
+    ),
+    'delivery_reprints',(
+      select coalesce(sum(quantity),0) from public.school_report_operations
+      where school_report_id=new.id and operation_type='DELIVERY_REPRINT'
+    )
+  );
+  new.updated_at:=now();
+  return new;
+end;
+$$;
+
+create or replace function public.rebuild_school_report_system_data(p_report_id uuid)
+returns void language plpgsql security definer
+set search_path=public,pg_temp set row_security=off
+as $$
+begin
+  update public.school_reports r
+  set system_data=jsonb_build_object(
+    'E',
+      coalesce(nullif(r.report_data->>'C','')::integer,0)
+      - coalesce(nullif(r.report_data->>'D','')::integer,0)
+      - coalesce((select sum(o.quantity) from public.school_report_operations o
+        where o.school_report_id=r.id and o.operation_type='ENROLLMENT_RATISSAGE'),0),
+    'H',r.report_data->'B',
+    'I',coalesce((select sum(o.quantity) from public.school_report_operations o
+      where o.school_report_id=r.id and o.operation_type in
+      ('DELIVERY_INITIAL','DELIVERY_RATISSAGE','DELIVERY_CORRECTION_FIRST_ISSUE')),0),
+    'J',case
+      when coalesce(nullif(r.report_data->>'D','')::integer,0)
+        +coalesce((select sum(o.quantity) from public.school_report_operations o
+          where o.school_report_id=r.id and o.operation_type='ENROLLMENT_RATISSAGE'),0)=0
+      then to_jsonb(''::text)
+      else to_jsonb(
+        coalesce(nullif(r.report_data->>'D','')::integer,0)
+        +coalesce((select sum(o.quantity) from public.school_report_operations o
+          where o.school_report_id=r.id and o.operation_type='ENROLLMENT_RATISSAGE'),0)
+        =
+        coalesce((select sum(o.quantity) from public.school_report_operations o
+          where o.school_report_id=r.id and o.operation_type in
+          ('DELIVERY_INITIAL','DELIVERY_RATISSAGE','DELIVERY_CORRECTION_FIRST_ISSUE')),0)
+      ) end,
+    'total_enrolled',
+      coalesce(nullif(r.report_data->>'D','')::integer,0)
+      +coalesce((select sum(o.quantity) from public.school_report_operations o
+        where o.school_report_id=r.id and o.operation_type='ENROLLMENT_RATISSAGE'),0),
+    'total_delivered_unique',coalesce((select sum(o.quantity) from public.school_report_operations o
+      where o.school_report_id=r.id and o.operation_type in
+      ('DELIVERY_INITIAL','DELIVERY_RATISSAGE','DELIVERY_CORRECTION_FIRST_ISSUE')),0),
+    'enrollment_corrections',coalesce((select sum(o.quantity) from public.school_report_operations o
+      where o.school_report_id=r.id and o.operation_type='ENROLLMENT_CORRECTION'),0),
+    'delivery_reprints',coalesce((select sum(o.quantity) from public.school_report_operations o
+      where o.school_report_id=r.id and o.operation_type='DELIVERY_REPRINT'),0)
+  )
+  where r.id=p_report_id;
+end;
+$$;
+revoke all on function public.rebuild_school_report_system_data(uuid) from public,anon,authenticated;
+
+create or replace function public.refresh_after_school_report_operation()
+returns trigger language plpgsql security definer
+set search_path=public,pg_temp set row_security=off
+as $$
+begin
+  perform public.rebuild_school_report_system_data(new.school_report_id);
+  return new;
+end;
+$$;
+create trigger school_report_operations_refresh_trg
+after insert on public.school_report_operations
+for each row execute function public.refresh_after_school_report_operation();
+
+-- Ensure the public field documentation reflects the new computed I and the added correction ledgers.
+comment on column public.school_reports.report_data is
+  'Workbook source fields A,B,C,D,F,G,K,L. D is initial enrollment; I is system-computed from unique delivery operations.';
+comment on column public.school_reports.system_data is
+  'Calculated E=C-(D+enrollment ratissage), H=B, I=unique delivered total, J=actual enrollment equals unique delivered; corrections/reprints are separate.';
