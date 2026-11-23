@@ -42,7 +42,8 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
   const [reviewNote, setReviewNote] = useState('');
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [userAssignments, setUserAssignments] = useState<Assignment[]>([]);
-  const [departmentModalOpen, setDepartmentModalOpen] = useState(false);\n  const [departmentId, setDepartmentId] = useState<string | null>(null);
+  const [departmentModalOpen, setDepartmentModalOpen] = useState(false);
+  const [departmentId, setDepartmentId] = useState<string | null>(null);
   const [departmentCode, setDepartmentCode] = useState('');
   const [departmentName, setDepartmentName] = useState('');
 
@@ -126,7 +127,8 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
   }
 
   function openDepartment(department?: Department) {
-    setDepartmentModalOpen(true);\n    setDepartmentId(department?.id ?? null);
+    setDepartmentModalOpen(true);
+    setDepartmentId(department?.id ?? null);
     setDepartmentCode(department?.code ?? '');
     setDepartmentName(department?.name ?? '');
   }
