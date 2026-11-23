@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { ArrowRight, CheckCircle2, GraduationCap, LockKeyhole, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { useAuth } from './auth/AuthContext';
+import AdminDashboard from './AdminDashboard';
 
 type View = 'LOGIN' | 'SIGNUP';
 
@@ -65,6 +66,10 @@ export default function AuthApp() {
 
     if (accessRequest.status === 'REJECTED') {
       return <main className="auth-page"><section className="auth-card"><AuthBrand/><div className="auth-status-icon rejected"><ShieldCheck/></div><h1>Demande non approuvée</h1><p className="auth-subtitle">L’administration n’a pas approuvé cette demande d’accès.</p>{accessRequest.review_note && <div className="auth-alert info">{accessRequest.review_note}</div>}<button className="auth-secondary" onClick={() => void signOut()}>Se déconnecter</button></section></main>;
+    }
+
+    if (memberships.some(membership => membership.role === 'CENTRAL_ADMIN')) {
+      return <AdminDashboard profile={profile} onSignOut={() => void signOut()} />;
     }
 
     if (memberships.length === 0) {
