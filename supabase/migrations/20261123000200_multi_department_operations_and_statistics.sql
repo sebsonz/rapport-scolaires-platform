@@ -306,11 +306,13 @@ as $$
     dr.total_effectif,dr.enrollment_initial,dr.enrollment_ratissage,dr.enrollment_corrections,
     dr.total_enrolled,
     dr.total_effectif-dr.total_enrolled,
-    case when dr.total_effectif=0 then 0 else round(dr.total_enrolled::numeric*100/dr.total_effectif,2) end,
+    case when dr.total_effectif=0 or dr.total_enrolled>dr.total_effectif then null else round(dr.total_enrolled::numeric*100/dr.total_effectif,2) end,
     dr.delivery_initial,dr.delivery_ratissage,dr.delivery_correction_first_issue,dr.delivery_reprints,
     dr.delivery_initial+dr.delivery_ratissage+dr.delivery_correction_first_issue,
     dr.total_enrolled-(dr.delivery_initial+dr.delivery_ratissage+dr.delivery_correction_first_issue),
-    case when dr.total_enrolled=0 then 0 else round(
+    case when dr.total_enrolled=0 or dr.total_enrolled>dr.total_effectif
+      or dr.delivery_initial+dr.delivery_ratissage+dr.delivery_correction_first_issue>dr.total_enrolled
+      then null else round(
       (dr.delivery_initial+dr.delivery_ratissage+dr.delivery_correction_first_issue)::numeric*100/dr.total_enrolled,2
     ) end,
     (case when dr.total_enrolled>dr.total_effectif then 1 else 0 end)
