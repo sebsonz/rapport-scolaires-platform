@@ -186,15 +186,15 @@ begin
    if v_key='H' then raise exception 'Field H is system-managed'; end if;
    if not (v_key = any(v_allowed)) then raise exception 'Not authorized to edit field %',v_key; end if;
  end loop;
- insert into public.school_reports(school_id,school_year_id,report_data,created_by,updated_by)
+ insert into public.school_reports as existing(school_id,school_year_id,report_data,created_by,updated_by)
  values(p_school_id,p_school_year_id,p_changes,auth.uid(),auth.uid())
  on conflict(school_id,school_year_id) do update
- set report_data=public.school_reports.report_data || excluded.report_data,
+ set report_data=existing.report_data || excluded.report_data,
      updated_by=auth.uid(),updated_at=now()
  returning * into v_report;
  insert into public.audit_events(actor_user_id,department_id,school_id,event_type,entity_table,record_id,details)
  values(auth.uid(),v_department,p_school_id,'REPORT_FIELDS_SAVED','school_reports',v_report.id::text,
- jsonb_build_object('changed_fields',jsonb_build_array(select jsonb_object_keys(p_changes))));
+ jsonb_build_object('changed_fields',coalesce((select jsonb_agg(k) from jsonb_object_keys(p_changes) as keys(k)),'[]'::jsonb)));
  return v_report;
 end;
 $$;
@@ -223,6 +223,33 @@ end;
 $$;
 revoke all on function public.create_delivery_slip(uuid,uuid,text,date,text,text) from public,anon;
 grant execute on function public.create_delivery_slip(uuid,uuid,text,date,text,text) to authenticated;
+
+
+create or replace function public.add_delivery_slip_line(
+ p_delivery_slip_id uuid,p_promotion_id uuid,p_group_code text,p_quantity integer
+) returns public.delivery_slip_lines
+language plpgsql security definer set search_path=public,pg_temp set row_security=off
+as $
+declare v_department uuid; v_school uuid; v_creator uuid; v_status public.delivery_status; v_result public.delivery_slip_lines;
+begin
+ if auth.uid() is null then raise exception 'Authentication required'; end if;
+ if p_quantity < 0 then raise exception 'Quantity cannot be negative'; end if;
+ select s.department_id,d.school_id,d.created_by,d.status into v_department,v_school,v_creator,v_status
+ from public.delivery_slips d join public.schools s on s.id=d.school_id where d.id=p_delivery_slip_id;
+ if v_department is null or not public.has_department_access(v_department) then raise exception 'Department access denied'; end if;
+ if v_status <> 'DRAFT' then raise exception 'Only draft delivery slips can be edited'; end if;
+ if v_creator <> auth.uid() and not public.is_central_admin() then raise exception 'Only the creator or central admin can edit this slip'; end if;
+ insert into public.delivery_slip_lines(delivery_slip_id,promotion_id,group_code,quantity_delivered)
+ values(p_delivery_slip_id,p_promotion_id,p_group_code,p_quantity)
+ returning * into v_result;
+ insert into public.audit_events(actor_user_id,department_id,school_id,event_type,entity_table,record_id,details)
+ values(auth.uid(),v_department,v_school,'DELIVERY_SLIP_LINE_ADDED','delivery_slip_lines',v_result.id::text,
+ jsonb_build_object('promotion_id',p_promotion_id,'group_code',p_group_code,'quantity',p_quantity));
+ return v_result;
+end;
+$;
+revoke all on function public.add_delivery_slip_line(uuid,uuid,text,integer) from public,anon;
+grant execute on function public.add_delivery_slip_line(uuid,uuid,text,integer) to authenticated;
 
 comment on column public.school_reports.report_data is 'Workbook fields keyed by original column letters; labels and data types are mapped in a later audited migration.';
 comment on column public.school_reports.system_data is 'System-derived values, including future confirmed mapping for column H.';
