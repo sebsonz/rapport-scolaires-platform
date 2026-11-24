@@ -1,8 +1,8 @@
 -- PostgreSQL smoke test for multi-department roles and validated operation limits.
 -- Executed only in the disposable CI database after applying all migrations.
-insert into auth.users(id) values
- ('11111111-1111-4111-8111-111111111111'),
- ('99999999-9999-4999-8999-999999999999');
+insert into auth.users(id, email, raw_user_meta_data) values
+ ('11111111-1111-4111-8111-111111111111','agent@example.test','{"full_name":"Agent Test"}'::jsonb),
+ ('99999999-9999-4999-8999-999999999999','admin@example.test','{"full_name":"Administrateur Test"}'::jsonb);
 
 insert into public.departments(id,code,name) values
  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','DPT-01','Département Test 1'),
