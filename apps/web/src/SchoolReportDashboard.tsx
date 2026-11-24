@@ -74,7 +74,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     if (!supabase) { setError('La connexion Supabase est indisponible.'); setLoading(false); return; }
     const requestId = ++loadRequestRef.current;
     setLoading(true); setError('');
-    const [schoolResult, yearResult, promotionResult] = await Promise.all([
+    const [schoolResult, yearResult, promotionResult, communeResult] = await Promise.all([
       supabase.from('schools').select('id,department_id,code,name,commune_id').eq('is_active', true).order('name'),
       supabase.from('school_years').select('id,code,label').eq('is_active', true).order('starts_on', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('promotions').select('id,code,label,cycle').eq('is_active', true).order('display_order').order('label'),
