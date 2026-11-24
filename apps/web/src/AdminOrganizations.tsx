@@ -41,9 +41,19 @@ type OrganizationForm = {
   website: string;
   logo_path: string | null;
 };
+type OrganizationAuditEvent = {
+  id: number;
+  actor_user_id: string | null;
+  event_type: string;
+  entity_table: string;
+  record_id: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+};
 type Props = {
   profiles: UserProfile[];
   approvedUserIds: string[];
+  auditEvents: OrganizationAuditEvent[];
 };
 
 const emptyForm = (): OrganizationForm => ({
@@ -56,7 +66,7 @@ function publicLogo(path: string | null) {
   return supabase.storage.from('organization-logos').getPublicUrl(path).data.publicUrl;
 }
 
-export default function AdminOrganizations({ profiles, approvedUserIds }: Props) {
+export default function AdminOrganizations({ profiles, approvedUserIds, auditEvents }: Props) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [memberships, setMemberships] = useState<OrganizationMembership[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +121,10 @@ export default function AdminOrganizations({ profiles, approvedUserIds }: Props)
 
   const selected = organizations.find(item => item.id === selectedId) ?? null;
   const selectedMemberships = memberships.filter(item => item.organization_id === selectedId);
+  const selectedAuditEvents = auditEvents.filter(item =>
+    (item.entity_table === 'organizations' && item.record_id === selectedId)
+    || (item.entity_table === 'organization_memberships' && item.details.organization_id === selectedId)
+  ).slice(0, 8);
   const profileById = useMemo(() => new Map(profiles.map(item => [item.user_id, item])), [profiles]);
   const approvedSet = useMemo(() => new Set(approvedUserIds), [approvedUserIds]);
   const assignedUserIds = useMemo(() => new Set(memberships.map(item => item.user_id)), [memberships]);
@@ -367,6 +381,24 @@ export default function AdminOrganizations({ profiles, approvedUserIds }: Props)
                   })}
               </div>
 
+              <div className="orgs-history">
+                <div className="orgs-section-heading"><div><h4>Historique administratif</h4><p>Création, modifications, statut et affectations des utilisateurs.</p></div><span>{selectedAuditEvents.length} événement(s)</span></div>
+                {selectedAuditEvents.length === 0 ? <div className="orgs-empty">Aucun événement administratif enregistré.</div> : selectedAuditEvents.map(event => {
+                  const actor = event.actor_user_id ? profileById.get(event.actor_user_id)?.full_name ?? 'Administrateur' : 'Système';
+                  const eventLabels: Record<string, string> = {
+                    ORGANIZATION_CREATED: 'Organisation créée',
+                    ORGANIZATION_UPDATED: 'Informations modifiées',
+                    ORGANIZATION_SUSPENDED: 'Organisation suspendue',
+                    ORGANIZATION_REACTIVATED: 'Organisation réactivée',
+                    ORGANIZATION_USER_ASSIGNED: 'Utilisateur affecté',
+                    ORGANIZATION_USER_REMOVED: 'Utilisateur retiré',
+                  };
+                  return <div className="orgs-history-row" key={event.id}>
+                    <span className="orgs-history-icon"><ShieldCheck size={14}/></span>
+                    <div><b>{eventLabels[event.event_type] ?? event.event_type}</b><small>{actor} · {new Date(event.created_at).toLocaleString('fr-FR')}</small></div>
+                  </div>;
+                })}
+              </div>
               <div className="orgs-footer-note"><ShieldCheck size={15}/> Les bordereaux conserveront un instantané du logo et des coordonnées de cette compagnie au moment de leur création.</div>
             </>
           )}
