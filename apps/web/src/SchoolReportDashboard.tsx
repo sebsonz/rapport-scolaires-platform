@@ -100,7 +100,6 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       const currentDepartmentId = visibleSchools.find(s => s.id === currentSchool)?.department_id ?? '';
       setDepartmentId(currentDepartmentId);
     }
-    if (!currentSchool) setCommune('');
     schoolIdRef.current = currentSchool;
     setSchoolId(currentSchool);
     if (!currentSchool || !activeYear) {
