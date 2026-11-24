@@ -148,3 +148,69 @@
 .admin-content-supervision .admin-count{background:#eee9ff;color:#6948b4}.admin-content-supervision .admin-empty{color:#a6b5c9}
 @media(max-width:1050px){.admin-supervision-analytics{grid-template-columns:1fr}.admin-supervision-donut-area{justify-content:flex-start}}
 @media(max-width:720px){.admin-content-supervision{padding:13px 10px 30px}.admin-content-supervision .admin-supervision-hero{padding:19px 17px;min-height:0;display:block}.admin-content-supervision .admin-supervision-hero h2{font-size:20px}.admin-supervision-refresh{margin-top:15px}.admin-supervision-hero-meta{gap:9px}.admin-content-supervision .admin-metrics{gap:8px}.admin-content-supervision .admin-metric{padding:12px}.admin-content-supervision .admin-metric>strong{font-size:21px}.admin-supervision-chart{padding:15px}.admin-supervision-donut-area{gap:15px;flex-wrap:wrap}.admin-supervision-donut{width:112px;height:112px}.admin-content-supervision>.admin-panel{padding:14px}}
+
+
+/* SUP-03: bright, colorful supervision theme and readable data tables */
+.admin-content-supervision{background:linear-gradient(145deg,#f2f6ff 0%,#f8faff 48%,#f3f7ff 100%);color:#203858}
+.admin-shell:has(.admin-content-supervision){background:#f3f7ff}
+.admin-content-supervision .admin-supervision-hero{background:radial-gradient(circle at 82% 12%,#ffffff35 0,transparent 24%),linear-gradient(112deg,#285fe8 0%,#5268ed 52%,#8052dc 100%);border:0;box-shadow:0 15px 34px #315fe92b}
+.admin-content-supervision .admin-supervision-hero:after{border-color:#ffffff38;box-shadow:0 0 0 28px #ffffff12,0 0 0 58px #ffffff0a}
+.admin-content-supervision .admin-supervision-hero span{color:#e6eaff}
+.admin-content-supervision .admin-supervision-hero h2{color:#fff}
+.admin-content-supervision .admin-supervision-hero p{color:#eef2ff}
+.admin-content-supervision .admin-supervision-hero-meta span{color:#fff}
+.admin-supervision-refresh{background:#fff;color:#3158c9;border-color:#ffffff80;box-shadow:0 5px 15px #1b3c9c22}
+.admin-supervision-refresh:hover{background:#f2f5ff;transform:translateY(-1px)}
+.admin-content-supervision .admin-supervision-filters{background:#fff;border-color:#e2eafa;box-shadow:0 8px 24px #34588b0c}
+.admin-content-supervision .admin-supervision-filter-title b{color:#203b61}
+.admin-content-supervision .admin-supervision-filter-title small{color:#7c8da6}
+.admin-content-supervision .admin-supervision-filter-meta span{background:#eef3ff;color:#4166c9}
+.admin-content-supervision .admin-metric{box-shadow:0 8px 22px #34588b10}
+.admin-content-supervision .admin-metric:nth-child(4n+1) .admin-metric-top i{background:#e9efff;color:#315fe8}
+.admin-content-supervision .admin-metric:nth-child(4n+2) .admin-metric-top i{background:#e9f9f4;color:#159a73}
+.admin-content-supervision .admin-metric:nth-child(4n+3) .admin-metric-top i{background:#f1eaff;color:#8052dc}
+.admin-content-supervision .admin-metric:nth-child(4n+4) .admin-metric-top i{background:#fff2df;color:#d58a25}
+.admin-content-supervision .admin-metric.emphasis{background:linear-gradient(145deg,#fff8ed,#fff);border-color:#f3d7a8}
+.admin-supervision-chart{background:linear-gradient(145deg,#fff 0%,#f9fbff 100%);border:1px solid #e1e9f6;box-shadow:0 8px 24px #34588b10}
+.admin-supervision-chart-head span{color:#6e55ce}
+.admin-supervision-chart-head h3{color:#1c3558}
+.admin-supervision-chart-head p{color:#8191a8}
+.admin-supervision-chart-tag{background:#eeeaff;color:#7255ca!important}
+.admin-supervision-bar-row b{color:#425b7c}
+.admin-supervision-bar-row span{color:#6e55ce}
+.admin-supervision-bar-track{background:#e9eef8}
+.admin-supervision-bar-track i{background:linear-gradient(90deg,#7654e8,#26b6c7);box-shadow:none}
+.admin-supervision-donut:before{background:#fff;box-shadow:inset 0 0 0 1px #e8edf6}
+.admin-supervision-donut b{color:#203b61}
+.admin-supervision-donut small{color:#8090a7}
+.admin-supervision-legend>div{color:#60748f}
+.admin-supervision-legend strong{color:#203b61}
+.admin-supervision-legend>small{color:#8796aa}
+.admin-content-supervision>.admin-panel{background:#fff;border-color:#e1e9f5;box-shadow:0 8px 24px #34588b0c}
+.admin-content-supervision .admin-panel-head h3{color:#1d385d}
+.admin-content-supervision .admin-panel-head p{color:#8291a7}
+.admin-content-supervision .admin-count{background:#eeeaff;color:#6e55c7}
+
+/* Data tables: clear hierarchy, sticky headers, zebra rows and horizontal navigation */
+.admin-content-supervision .admin-table-wrap{max-height:560px;overflow:auto;border:1px solid #e5ebf5;border-radius:11px;scrollbar-color:#b9c8e2 #f3f6fb;scrollbar-width:thin}
+.admin-content-supervision .admin-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;text-align:left}
+.admin-content-supervision .admin-table th{position:sticky;top:0;z-index:3;background:linear-gradient(180deg,#edf3ff,#e7efff);color:#425d88;font-size:9px;font-weight:800;letter-spacing:.45px;padding:13px 12px;border-bottom:1px solid #d8e3f5;white-space:nowrap}
+.admin-content-supervision .admin-table td{background:#fff;color:#536984;font-size:10px;padding:12px;border-bottom:1px solid #edf1f7;white-space:nowrap;vertical-align:middle}
+.admin-content-supervision .admin-table tbody tr:nth-child(even) td{background:#f8faff}
+.admin-content-supervision .admin-table tbody tr:hover td{background:#edf4ff}
+.admin-content-supervision .admin-table td:first-child,.admin-content-supervision .admin-table th:first-child{position:sticky;left:0;z-index:2;box-shadow:5px 0 10px #1a365d0a}
+.admin-content-supervision .admin-table th:first-child{z-index:4;background:#e5edff}
+.admin-content-supervision .admin-table td:first-child{background:#fff}
+.admin-content-supervision .admin-table tbody tr:nth-child(even) td:first-child{background:#f8faff}
+.admin-content-supervision .admin-table tbody tr:hover td:first-child{background:#edf4ff}
+.admin-content-supervision .admin-table td b{color:#263f65;font-size:10px;font-weight:800}
+.admin-content-supervision .admin-table td small{color:#8b9ab0;font-size:9px;margin-top:4px}
+.admin-content-supervision .admin-table .admin-status{font-size:9px;padding:5px 9px}
+.admin-content-supervision .admin-table-wrap::-webkit-scrollbar{width:9px;height:9px}
+.admin-content-supervision .admin-table-wrap::-webkit-scrollbar-thumb{background:#c5d2e8;border:2px solid #f5f8fd;border-radius:20px}
+.admin-content-supervision .admin-table-wrap::-webkit-scrollbar-track{background:#f5f8fd}
+@media(max-width:720px){
+  .admin-content-supervision .admin-table-wrap{max-height:460px}
+  .admin-content-supervision .admin-table th{padding:11px 10px}
+  .admin-content-supervision .admin-table td{padding:10px}
+}
