@@ -153,12 +153,12 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
     const rawLabel = promotion?.label ?? promotion?.code ?? '—';
     // Certains anciens catalogues ont enregistré "6e M1" dans le libellé
     // de promotion et "UNIQUE" comme valeur technique de groupe.
-    const embedded = rawLabel.match(/^(.*?)[\\s-]+(M\\d+)$/i);
+    const embedded = rawLabel.match(/^(.*?)[\s-]+(M\d+)$/i);
     const isPlaceholder = line.group_code.trim().toUpperCase() === 'UNIQUE';
     const groupName = isPlaceholder
       ? rawLabel
       : embedded
-        ? rawLabel.replace(/^(.*?)[\\s-]+(M\\d+)$/i, '$1') + ' ' + line.group_code
+        ? rawLabel.replace(/^(.*?)[\s-]+(M\d+)$/i, '$1') + ' ' + line.group_code
         : rawLabel + ' ' + line.group_code;
     return {
       promotionName: embedded ? embedded[1].trim() : rawLabel,
