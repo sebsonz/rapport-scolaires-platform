@@ -93,11 +93,6 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       ? preferredSchoolId : (requestedSchoolId === '' ? '' : (visibleSchools[0]?.id ?? ''));
     schoolIdRef.current = currentSchool;
     setSchoolId(currentSchool);
-    const selectedSchool = visibleSchools.find(s => s.id === currentSchool);
-    if (selectedSchool) {
-      setSelectedDepartmentId(selectedSchool.department_id);
-      setSelectedCommune(selectedSchool.commune ?? '');
-    }
     if (!currentSchool || !activeYear) {
       setGroups([]); setReports([]); setOperations([]); setDeliveryInitialCorrections([]); setLoading(false); return;
     }
