@@ -514,34 +514,36 @@ GRANT EXECUTE ON FUNCTION public.admin_remove_organization_user(uuid,uuid,text)
 GRANT EXECUTE ON FUNCTION public.get_my_organization_branding()
   TO authenticated;
 
-INSERT INTO storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'organization-logos',
-  'organization-logos',
-  true,
-  5242880,
-  ARRAY['image/png','image/jpeg','image/webp','image/svg+xml']
-)
-ON CONFLICT (id) DO UPDATE
-SET public = EXCLUDED.public,
-    file_size_limit = EXCLUDED.file_size_limit,
-    allowed_mime_types = EXCLUDED.allowed_mime_types;
+DO $storage_setup$
+BEGIN
+  -- Supabase provides these Storage relations. The plain PostgreSQL CI harness does not,
+  -- so skip only the Storage bucket/policies there while still testing the organization schema.
+  IF to_regclass('storage.buckets') IS NOT NULL
+     AND to_regclass('storage.objects') IS NOT NULL THEN
+    INSERT INTO storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
+    VALUES (
+      'organization-logos',
+      'organization-logos',
+      true,
+      5242880,
+      ARRAY['image/png','image/jpeg','image/webp','image/svg+xml']
+    )
+    ON CONFLICT (id) DO UPDATE
+    SET public = EXCLUDED.public,
+        file_size_limit = EXCLUDED.file_size_limit,
+        allowed_mime_types = EXCLUDED.allowed_mime_types;
 
-DROP POLICY IF EXISTS organization_logos_admin_insert ON storage.objects;
-CREATE POLICY organization_logos_admin_insert
-  ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'organization-logos' AND public.is_central_admin());
-
-DROP POLICY IF EXISTS organization_logos_admin_update ON storage.objects;
-CREATE POLICY organization_logos_admin_update
-  ON storage.objects FOR UPDATE TO authenticated
-  USING (bucket_id = 'organization-logos' AND public.is_central_admin())
-  WITH CHECK (bucket_id = 'organization-logos' AND public.is_central_admin());
-
-DROP POLICY IF EXISTS organization_logos_admin_delete ON storage.objects;
-CREATE POLICY organization_logos_admin_delete
-  ON storage.objects FOR DELETE TO authenticated
-  USING (bucket_id = 'organization-logos' AND public.is_central_admin());
+    EXECUTE 'DROP POLICY IF EXISTS organization_logos_admin_insert ON storage.objects';
+    EXECUTE 'CREATE POLICY organization_logos_admin_insert ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = ''organization-logos'' AND public.is_central_admin())';
+    EXECUTE 'DROP POLICY IF EXISTS organization_logos_admin_update ON storage.objects';
+    EXECUTE 'CREATE POLICY organization_logos_admin_update ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = ''organization-logos'' AND public.is_central_admin()) WITH CHECK (bucket_id = ''organization-logos'' AND public.is_central_admin())';
+    EXECUTE 'DROP POLICY IF EXISTS organization_logos_admin_delete ON storage.objects';
+    EXECUTE 'CREATE POLICY organization_logos_admin_delete ON storage.objects FOR DELETE TO authenticated USING (bucket_id = ''organization-logos'' AND public.is_central_admin())';
+  ELSE
+    RAISE NOTICE 'Supabase Storage is not present in this PostgreSQL test environment; skipping logo bucket setup.';
+  END IF;
+END;
+$storage_setup$;
 
 COMMENT ON TABLE public.organizations IS
   'Identité métier et visuelle des compagnies qui émettent les bordereaux de livraison.';
