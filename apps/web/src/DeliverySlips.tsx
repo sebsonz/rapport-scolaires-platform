@@ -131,20 +131,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
       setLoading(false); return;
     }
     setGroups((groupResult.data ?? []) as PedagogicalGroup[]);
-    setLines((lineResult.data ?? []) as Line[]);    setLoading(false); return;
-    }
-    setGroups((groupResult.data ?? []) as PedagogicalGroup[]);
-    const nextSlips = (slipResult.data ?? []) as Slip[];
-    setSlips(nextSlips);
-    const nextSelected = nextSlips.some(item => item.id === selectedSlipId) ? selectedSlipId : nextSlips[0]?.id ?? '';
-    setSelectedSlipId(nextSelected);
-    if (nextSelected) {
-      const lineResult = await supabase.from('delivery_slip_lines')
-        .select('id,delivery_slip_id,promotion_id,group_code,quantity_delivered')
-        .eq('delivery_slip_id', nextSelected).order('created_at');
-      if (lineResult.error) setError(lineResult.error.message);
-      setLines((lineResult.data ?? []) as Line[]);
-    } else setLines([]);
+    setLines((lineResult.data ?? []) as Line[]);
     setLoading(false);
   }, [schoolId, selectedSlipId]);
 
