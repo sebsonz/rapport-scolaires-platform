@@ -59,7 +59,6 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  const isCentralAdmin = memberships.some(item => item.role === 'CENTRAL_ADMIN');
   const selectedSchoolForRole = schools.find(item => item.id === schoolId);
   const scopedRoles = new Set(memberships
     .filter(item => item.role === 'CENTRAL_ADMIN' || item.department_id === selectedSchoolForRole?.department_id)
