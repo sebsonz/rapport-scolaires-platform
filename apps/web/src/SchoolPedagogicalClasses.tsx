@@ -5,10 +5,9 @@ import './SchoolPedagogicalClasses.css';
 
 type Promotion = { id: string; code: string; label: string; cycle: string };
 type Group = { id: string; promotion_id: string; is_active: boolean };
-type Membership = { department_id: string | null; role: 'CENTRAL_ADMIN' | 'CATEGORY_1' | 'CATEGORY_2' };
 
 export default function SchoolPedagogicalClasses({
-  schoolId, schoolName, yearId, yearLabel, promotions, groups, memberships, onSaved,
+  schoolId, schoolName, yearId, yearLabel, promotions, groups, canConfigure, onSaved,
 }: {
   schoolId: string;
   schoolName: string;
@@ -16,7 +15,7 @@ export default function SchoolPedagogicalClasses({
   yearLabel: string;
   promotions: Promotion[];
   groups: Group[];
-  memberships: Membership[];
+  canConfigure: boolean;
   onSaved: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -25,9 +24,6 @@ export default function SchoolPedagogicalClasses({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  const canConfigure = memberships.some(item =>
-    item.role === 'CENTRAL_ADMIN' || (item.role === 'CATEGORY_1' && item.department_id),
-  );
   const activePromotionIds = useMemo(
     () => [...new Set(groups.filter(group => group.is_active).map(group => group.promotion_id))],
     [groups],
