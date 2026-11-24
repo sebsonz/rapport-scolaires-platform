@@ -72,9 +72,24 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     if (!supabase) { setError('La connexion Supabase est indisponible.'); setLoading(false); return; }
     const requestId = ++loadRequestRef.current;
     setLoading(true); setError('');
+    // Apply the user's geographic scope in the database query itself.
+    // CENTRAL_ADMIN is global; CATEGORY_1/CATEGORY_2 are limited to assigned departments.
+    const fallbackNoDepartment = '00000000-0000-0000-0000-000000000000';
+    let schoolQuery = supabase.from('schools')
+      .select('id,department_id,code,name,commune')
+      .eq('is_active', true)
+      .order('name');
+    let departmentQuery = supabase.from('departments')
+      .select('id,code,name')
+      .order('name');
+    if (!isCentralAdmin) {
+      const allowedDepartmentIds = departmentIds.length ? departmentIds : [fallbackNoDepartment];
+      schoolQuery = schoolQuery.in('department_id', allowedDepartmentIds);
+      departmentQuery = departmentQuery.in('id', allowedDepartmentIds);
+    }
     const [schoolResult, departmentResult, yearResult, promotionResult] = await Promise.all([
-      supabase.from('schools').select('id,department_id,code,name,commune').eq('is_active', true).order('name'),
-      supabase.from('departments').select('id,code,name').order('name'),
+      schoolQuery,
+      departmentQuery,
       supabase.from('school_years').select('id,code,label').eq('is_active', true).order('starts_on', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('promotions').select('id,code,label,cycle').eq('is_active', true).order('display_order').order('label'),
     ]);
@@ -353,7 +368,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       <header className="report-topbar">
         <div><h1>Tableau de bord — Rapports scolaires</h1><p>Suivi de l’enrôlement et de la livraison · {school?.name ?? 'Établissement'}</p></div>
         <div className="report-context">
-          <label className="report-location-filter"><span>Département</span><select value={departmentId} onChange={e => selectDepartment(e.target.value)}><option value="">Choisir un département</option>{departmentOptions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+          <label className="report-location-filter"><span>Département</span><select value={departmentId} onChange={e => selectDepartment(e.target.value)} disabled={departmentOptions.length === 0}><option value="">Choisir un département</option>{departmentOptions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
           {departmentId && <label className="report-location-filter"><span>Commune</span><select value={commune} onChange={e => selectCommune(e.target.value)}><option value="">Choisir une commune</option>{communeOptions.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}
           {departmentId && commune && <label className="report-location-filter"><Building2/><span className="sr-only">Établissement</span><select value={schoolId} onChange={e => selectSchool(e.target.value)}><option value="">Choisir une école</option>{filteredSchools.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
           <span><BookOpen/> {year?.label ?? 'Aucune année active'}</span>
