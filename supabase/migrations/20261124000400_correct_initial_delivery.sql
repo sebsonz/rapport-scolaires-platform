@@ -156,6 +156,7 @@ declare
   v_required_role public.school_member_role;
   v_result public.school_report_operations;
   v_effective_initial_delivery integer;
+  v_corrected_initial_delivery integer;
 begin
   if auth.uid() is null then raise exception 'Authentification requise'; end if;
   if p_quantity is null or p_quantity <= 0 then raise exception 'La quantité doit être un entier positif'; end if;
@@ -196,9 +197,10 @@ begin
   select coalesce(sum(o.quantity),0)::integer into v_effective_initial_delivery
   from public.school_report_operations o
   where o.school_report_id=v_report.id and o.operation_type='DELIVERY_INITIAL';
-  select c.quantity into v_effective_initial_delivery
+  select c.quantity into v_corrected_initial_delivery
   from public.school_report_delivery_initial_corrections c
   where c.school_report_id=v_report.id order by c.created_at desc limit 1;
+  v_effective_initial_delivery := coalesce(v_corrected_initial_delivery,v_effective_initial_delivery);
 
   select coalesce(sum(quantity),0)::integer into v_delivered
   from public.school_report_operations
@@ -245,6 +247,7 @@ as $$
 declare
   v_initial_delivery integer;
   v_other_deliveries integer;
+  v_corrected_initial_delivery integer;
   v_enrolled integer;
   v_capacity integer;
 begin
@@ -262,9 +265,10 @@ begin
   select coalesce(sum(o.quantity),0)::integer into v_initial_delivery
   from public.school_report_operations o
   where o.school_report_id=p_report_id and o.operation_type='DELIVERY_INITIAL';
-  select c.quantity into v_initial_delivery
+  select c.quantity into v_corrected_initial_delivery
   from public.school_report_delivery_initial_corrections c
   where c.school_report_id=p_report_id order by c.created_at desc limit 1;
+  v_initial_delivery := coalesce(v_corrected_initial_delivery,v_initial_delivery);
 
   select coalesce(sum(o.quantity),0)::integer into v_other_deliveries
   from public.school_report_operations o
