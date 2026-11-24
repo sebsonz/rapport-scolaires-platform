@@ -5,12 +5,13 @@ import {
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './SchoolReportDashboard.css';
+import SchoolPedagogicalClasses from './SchoolPedagogicalClasses';
 
 type Membership = { department_id: string | null; role: 'CENTRAL_ADMIN' | 'CATEGORY_1' | 'CATEGORY_2' };
 type School = { id: string; department_id: string; code: string; name: string };
 type Year = { id: string; code: string; label: string };
 type Promotion = { id: string; code: string; label: string; cycle: string };
-type Group = { id: string; school_id: string; school_year_id: string; promotion_id: string; group_code: string };
+type Group = { id: string; school_id: string; school_year_id: string; promotion_id: string; group_code: string; is_active: boolean };
 type Report = { id: string; pedagogical_group_id: string; report_data: Record<string, unknown> };
 type Operation = { id: string; pedagogical_group_id: string; operation_type: string; quantity: number; created_at: string; note: string | null };
 
@@ -79,8 +80,8 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       setGroups([]); setReports([]); setOperations([]); setLoading(false); return;
     }
     const [groupResult, reportResult] = await Promise.all([
-      supabase.from('pedagogical_groups').select('id,school_id,school_year_id,promotion_id,group_code')
-        .eq('school_id', currentSchool).eq('school_year_id', activeYear.id).order('created_at'),
+      supabase.from('pedagogical_groups').select('id,school_id,school_year_id,promotion_id,group_code,is_active')
+        .eq('school_id', currentSchool).eq('school_year_id', activeYear.id).eq('is_active', true).order('created_at'),
       supabase.from('school_reports').select('id,pedagogical_group_id,report_data')
         .eq('school_id', currentSchool).eq('school_year_id', activeYear.id),
     ]);
@@ -206,6 +207,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
         {!school && <div className="report-empty">Aucun établissement autorisé n’est associé à ce compte.</div>}
         {school && <>
           <section className="report-school-banner"><div className="report-school-icon"><Building2/></div><div><h2>{school.name}</h2><p>{school.code} · {year?.label}</p></div><div className="report-category cat-one"><Users/><b>Catégorie 1</b><small>Enrôlement · Ratissage · Correction</small></div><div className="report-category cat-two"><Truck/><b>Catégorie 2</b><small>Livraison · Réimpression</small></div><div className="report-category cat-common"><Users/><b>Tableau de bord commun</b><small>Données partagées et actualisées</small></div></section>
+          <SchoolPedagogicalClasses schoolId={school.id} schoolName={school.name} yearId={year?.id ?? ''} yearLabel={year?.label ?? ''} promotions={promotions} groups={groups} canConfigure={canEnrollment} onSaved={() => void load()}/>
           <section className="report-metrics">
             <Metric icon={<Users/>} label="Effectif total" value={fmt(totals.capacity)} tone="blue"/>
             <Metric icon={<ClipboardList/>} label="Enrôlement initial" value={fmt(totals.initial)} tone="purple"/>
