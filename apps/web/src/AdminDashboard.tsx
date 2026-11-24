@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNo
 import {
   Activity, AlertCircle, BookOpen, Building2, Check, CheckCircle2,
   ChevronRight, ClipboardCheck, Clock3, GraduationCap, LayoutDashboard, LogOut,
-  Plus, RefreshCw, Search, ShieldCheck, Users, X, Pencil, History,
+  Plus, RefreshCw, Search, ShieldCheck, Users, X, Pencil, History, PackageCheck, Truck,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import type { UserProfile } from './auth/AuthContext';
