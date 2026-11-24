@@ -202,6 +202,12 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     } finally { setBusy(false); }
   }
 
+  useEffect(() => {
+    if (!allowedTypes.some(type => type.value === entryType) && allowedTypes.length > 0) {
+      setEntryType(allowedTypes[0].value);
+    }
+  }, [allowedTypes.map(type => type.value).join('|'), entryType]);
+
   const fmt = (value: number) => value.toLocaleString('fr-FR');
   const enrollmentRate = totals.capacity ? totals.enrolled / totals.capacity * 100 : 0;
   const deliveryRate = totals.enrolled ? totals.delivered / totals.enrolled * 100 : 0;
@@ -255,14 +261,14 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
             </tbody></table>{rows.length === 0 && <div className="report-empty">Aucune classe n’est encore affectée à cet établissement pour l’année active.</div>}</div>
           </section>
           <section className="report-entry-grid" id="collecte">
-            <form className="report-panel report-entry" onSubmit={submit}><h3><Users/> Saisie des données</h3>
-              <label>Type d’opération<select value={entryType} onChange={e => setEntryType(e.target.value)}>{allowedTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
+            <form className={`report-panel report-entry ${!canEnrollment && canDelivery ? 'report-entry-delivery' : ''}`} onSubmit={submit}><h3>{!canEnrollment && canDelivery ? <><Truck/> Saisie des livraisons — Catégorie 2</> : canEnrollment && !canDelivery ? <><Users/> Saisie de l’enrôlement — Catégorie 1</> : <><ClipboardList/> Saisie des opérations</>}</h3>{!canEnrollment && canDelivery && <p className="report-entry-intro">Enregistrez les quantités livrées pour une classe déjà affectée à cet établissement. Les données mettent à jour les mêmes lignes du tableau partagé.</p>}
+              <label>{!canEnrollment && canDelivery ? "Type de livraison" : "Type d’opération"}<select value={entryType} onChange={e => setEntryType(e.target.value)}>{allowedTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
               <label>Classe<select value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)} required><option value="">Sélectionner une classe</option>{rows.map(r => <option key={r.group.id} value={r.group.id}>{r.promotion?.code} · {r.group.group_code}</option>)}</select></label>
               {entryType === 'INITIAL' ? <>
                 {hasInitialReport && !editingInitial && <div className="report-initial-status"><span>Données initiales déjà enregistrées pour cette classe.</span><button type="button" className="report-edit-button" onClick={() => setEditingInitial(true)}>Modifier</button></div>}
                 <div className="report-entry-fields"><label>Effectif de la classe<input type="number" min="1" step="1" value={capacity} onChange={e => setCapacity(e.target.value)} required readOnly={!editingInitial}/></label><label>Effectif enrôlé initial<input type="number" min="0" step="1" value={initialEnrollment} onChange={e => setInitialEnrollment(e.target.value)} required readOnly={!editingInitial}/></label></div>
                 {editingInitial && <button className="report-submit" type="submit" disabled={busy || !selectedGroup}>{busy ? 'Enregistrement…' : hasInitialReport ? 'Enregistrer les modifications' : 'Enregistrer l’enrôlement initial'}</button>}
-              </> : <label>Quantité<input type="number" min="1" step="1" value={quantity} onChange={e => setQuantity(e.target.value)} required/></label>}
+              </> : <label>{entryType === 'DELIVERY_REPRINT' ? "Nombre de réimpressions" : "Quantité livrée"}<input type="number" min="1" step="1" value={quantity} onChange={e => setQuantity(e.target.value)} required/></label>}
               {entryType !== 'INITIAL' && <label>Observations (facultatif)<textarea value={note} onChange={e => setNote(e.target.value)} rows={2}/></label>}
               {entryType !== 'INITIAL' && <button className="report-submit" disabled={busy || !selectedGroup}>{busy ? 'Enregistrement…' : 'Enregistrer l’opération'}</button>}
             </form>
