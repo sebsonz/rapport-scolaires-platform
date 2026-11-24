@@ -74,30 +74,43 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     if (!supabase) { setError('La connexion Supabase est indisponible.'); setLoading(false); return; }
     const requestId = ++loadRequestRef.current;
     setLoading(true); setError('');
-    const [schoolResult, yearResult, promotionResult, communeResult] = await Promise.all([
-      supabase.from('schools').select('id,department_id,code,name,commune_id').eq('is_active', true).order('name'),
+    const [catalogResult, yearResult, promotionResult] = await Promise.all([
+      supabase.rpc('get_school_location_filter_catalog'),
       supabase.from('school_years').select('id,code,label').eq('is_active', true).order('starts_on', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('promotions').select('id,code,label,cycle').eq('is_active', true).order('display_order').order('label'),
-      supabase.from('communes').select('id,department_id,code,name').eq('is_active', true).order('name'),
     ]);
-    const departmentQuery = supabase.from('departments').select('id,code,name').order('name');
-    const departmentResult = isCentralAdmin
-      ? await departmentQuery
-      : departmentIds.length
-        ? await departmentQuery.in('id', departmentIds)
-        : { data: [], error: null };
     if (requestId !== loadRequestRef.current) return;
-    const firstError = schoolResult.error ?? yearResult.error ?? promotionResult.error ?? communeResult.error;
+    const firstError = catalogResult.error ?? yearResult.error ?? promotionResult.error;
     if (firstError) { setError(firstError.message); setLoading(false); return; }
-    if (departmentResult.error) {
-      setError(`Impossible de charger les départements : ${departmentResult.error.message}`);
+    const catalogRows = (catalogResult.data ?? []) as Array<{
+      department_id: string; department_code: string; department_name: string;
+      commune_id: string | null; commune_code: string | null; commune_name: string | null;
+      school_id: string; school_code: string; school_name: string;
+    }>;
+    const departmentMap = new Map<string, Department>();
+    const communeMap = new Map<string, Commune>();
+    const schoolMap = new Map<string, School>();
+    for (const row of catalogRows) {
+      departmentMap.set(row.department_id, {
+        id: row.department_id, code: row.department_code, name: row.department_name,
+      });
+      if (row.commune_id && row.commune_code && row.commune_name) {
+        communeMap.set(row.commune_id, {
+          id: row.commune_id, department_id: row.department_id,
+          code: row.commune_code, name: row.commune_name,
+        });
+      }
+      schoolMap.set(row.school_id, {
+        id: row.school_id, department_id: row.department_id,
+        code: row.school_code, name: row.school_name, commune_id: row.commune_id,
+      });
     }
-    const visibleSchools = (schoolResult.data ?? []).filter(s => isCentralAdmin || departmentIds.includes(s.department_id));
+    const visibleSchools = [...schoolMap.values()].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
     const activeYear = yearResult.data as Year | null;
     if (requestId !== loadRequestRef.current) return;
     setSchools(visibleSchools);
-    setCommunes((communeResult.data ?? []) as Commune[]);
-    setDepartments((departmentResult.data ?? []) as Department[]);
+    setCommunes([...communeMap.values()]);
+    setDepartments([...departmentMap.values()]);
     setYear(activeYear);
     setPromotions((promotionResult.data ?? []) as Promotion[]);
     const preferredSchoolId = requestedSchoolId ?? schoolIdRef.current;
@@ -142,7 +155,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     } else { setOperations([]); setDeliveryInitialCorrections([]); }
     setSelectedGroup(current => nextGroups.some(g => g.id === current) ? current : (nextGroups[0]?.id ?? ''));
     setLoading(false);
-  }, [departmentIds, isCentralAdmin]);
+  }, []);
 
   useEffect(() => { void load(false); }, [load]);
 
