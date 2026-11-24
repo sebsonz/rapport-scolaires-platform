@@ -182,16 +182,18 @@ BEGIN
     RAISE EXCEPTION 'Seule l’administration centrale peut valider un bordereau';
   END IF;
 
-  SELECT d.*, s.department_id
-    INTO v_slip, v_department
+  SELECT d.* INTO v_slip
   FROM public.delivery_slips d
-  JOIN public.schools s ON s.id = d.school_id
   WHERE d.id = p_delivery_slip_id
-  FOR UPDATE OF d;
+  FOR UPDATE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Bordereau introuvable';
   END IF;
+
+  SELECT department_id INTO v_department
+  FROM public.schools
+  WHERE id = v_slip.school_id;
 
   IF v_slip.creator_role <> 'CATEGORY_2' THEN
     RAISE EXCEPTION 'La validation administrative est réservée aux bordereaux créés en catégorie 2';
