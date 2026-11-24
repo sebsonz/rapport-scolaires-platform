@@ -148,11 +148,32 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
   const canManageSelected = Boolean(selectedSlip && (selectedSlip.created_by === currentUserId || isAdmin));
   const canValidate = isAdmin && selectedSlip?.creator_role === 'CATEGORY_2' && selectedSlip.status === 'SUBMITTED';
   const promotionLabel = (id: string) => promotions.find(item => item.id === id)?.label ?? promotions.find(item => item.id === id)?.code ?? '—';
+  const groupPresentation = (line: Line) => {
+    const promotion = promotions.find(item => item.id === line.promotion_id);
+    const rawLabel = promotion?.label ?? promotion?.code ?? '—';
+    // Certains anciens catalogues ont enregistré "6e M1" dans le libellé
+    // de promotion et "UNIQUE" comme valeur technique de groupe.
+    const embedded = rawLabel.match(/^(.*?)[\\s-]+(M\\d+)$/i);
+    const isPlaceholder = line.group_code.trim().toUpperCase() === 'UNIQUE';
+    const groupName = isPlaceholder
+      ? rawLabel
+      : embedded
+        ? rawLabel.replace(/^(.*?)[\\s-]+(M\\d+)$/i, '$1') + ' ' + line.group_code
+        : rawLabel + ' ' + line.group_code;
+    return {
+      promotionName: embedded ? embedded[1].trim() : rawLabel,
+      groupName: groupName.trim(),
+    };
+  };
   const groupedLines = useMemo(() => {
-    const map = new Map<string, { label: string; lines: Line[]; total: number }>();
+    const map = new Map<string, { label: string; lines: Array<{ line: Line; groupName: string }>; total: number }>();
     selectedLines.forEach(line => {
-      const group = map.get(line.promotion_id) ?? { label: promotionLabel(line.promotion_id), lines: [], total: 0 };
-      group.lines.push(line); group.total += line.quantity_delivered; map.set(line.promotion_id, group);
+      const presentation = groupPresentation(line);
+      const key = presentation.promotionName.toLocaleLowerCase('fr-FR');
+      const group = map.get(key) ?? { label: presentation.promotionName, lines: [], total: 0 };
+      group.lines.push({ line, groupName: presentation.groupName });
+      group.total += line.quantity_delivered;
+      map.set(key, group);
     });
     return [...map.entries()].map(([id, value]) => ({ id, ...value }));
   }, [selectedLines, promotions]);
@@ -252,7 +273,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
       </div>
       <div className="delivery-lines-wrap"><table className="delivery-print-table"><thead><tr><th>N°</th><th>Groupes pédagogiques</th><th>Quantité livrée</th></tr></thead>
         {groupedLines.map(group => <tbody key={group.id}>
-          {group.lines.map((line, index) => <tr key={line.id}><td>{index + 1}</td><td>{line.group_code}</td><td>{line.quantity_delivered.toLocaleString('fr-FR')}</td></tr>)}
+          {group.lines.map(({ line, groupName }, index) => <tr key={line.id}><td>{index + 1}</td><td>{groupName}</td><td>{line.quantity_delivered.toLocaleString('fr-FR')}</td></tr>)}
           <tr className="delivery-promotion-total"><td colSpan={2}>Total par promotion — {group.label}</td><td>{group.total.toLocaleString('fr-FR')}</td></tr>
         </tbody>)}
         <tfoot><tr><th colSpan={2}>TOTAL GÉNÉRAL</th><th>{total.toLocaleString('fr-FR')}</th></tr></tfoot>
