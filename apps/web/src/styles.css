@@ -214,3 +214,62 @@
   .admin-content-supervision .admin-table th{padding:11px 10px}
   .admin-content-supervision .admin-table td{padding:10px}
 }
+
+
+/* SUP-04: KPI cards with distinct semantic color identities */
+.admin-content-supervision .admin-metrics{align-items:stretch}
+.admin-content-supervision .admin-metric{
+  min-height:132px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  border-radius:15px;
+  padding:16px 17px 15px;
+  box-shadow:0 7px 20px #28466e0d;
+  transition:transform .18s ease,box-shadow .18s ease;
+}
+.admin-content-supervision .admin-metric:hover{transform:translateY(-3px);box-shadow:0 13px 26px #28466e18}
+.admin-content-supervision .admin-metric:after{width:112px;height:112px;right:-42px;bottom:-62px;opacity:.75}
+.admin-content-supervision .admin-metric-top{position:relative;z-index:1;align-items:center;color:#526782;font-size:10px;line-height:1.35}
+.admin-content-supervision .admin-metric-top span{max-width:calc(100% - 46px)}
+.admin-content-supervision .admin-metric-top i{width:38px;height:38px;border-radius:12px}
+.admin-content-supervision .admin-metric>strong{position:relative;z-index:1;font-size:30px;line-height:1.1;margin:12px 0 5px;letter-spacing:-.7px}
+.admin-content-supervision .admin-metric>small{position:relative;z-index:1;font-size:9px;color:#667b96}
+
+/* First KPI row: activity, capacity and completed work */
+.admin-content-supervision .admin-metrics:nth-of-type(1) .admin-metric:nth-child(1){background:linear-gradient(135deg,#eaf1ff 0%,#f8faff 100%);border-color:#d5e2ff}
+.admin-content-supervision .admin-metrics:nth-of-type(1) .admin-metric:nth-child(1)>strong{color:#285fe8}
+.admin-content-supervision .admin-metrics:nth-of-type(1) .admin-metric:nth-child(1) .admin-metric-top i{background:#dce7ff;color:#285fe8}
+.admin-content-supervision .admin-metrics:nth-of-type(1) .admin-metric:nth-child(2){background:linear-gradient(135deg,#e7faf4 0%,#f8fdfb 100%);border-color:#ccefe2}
+.admin-content-supervision .admin-metrics:nth-of-type(1) .admin-metric:nth-child(2)>strong{color:#12966f}
+.admin-content-supervision .admin-metrics:nth-of-type(1) .admin-metric:nth-child(2) .admin-metric-top i{background:#d2f4e8;color:#12966f}
+.admin-content-supervision .admin-metrics:nth-of-type(1) .admin-metric:nth-child(3){background:linear-gradient(135deg,#f1eaff 0%,#fcfaff 100%);border-color:#e4d7ff}
+.admin-content-supervision .admin-metrics:nth-of-type(1) .admin-metric:nth-child(3)>strong{color:#8052dc}
+.admin-content-supervision .admin-metrics:nth-of-type(1) .admin-metric:nth-child(3) .admin-metric-top i{background:#e7dcff;color:#8052dc}
+.admin-content-supervision .admin-metrics:nth-of-type(1) .admin-metric:nth-child(4){background:linear-gradient(135deg,#fff2df 0%,#fffaf3 100%);border-color:#f6dfbd}
+.admin-content-supervision .admin-metrics:nth-of-type(1) .admin-metric:nth-child(4)>strong{color:#ce8120}
+.admin-content-supervision .admin-metrics:nth-of-type(1) .admin-metric:nth-child(4) .admin-metric-top i{background:#ffe8c5;color:#ce8120}
+
+/* Second KPI row: remaining work, corrections and quality control */
+.admin-content-supervision .admin-metrics:nth-of-type(2) .admin-metric:nth-child(1){background:linear-gradient(135deg,#e5f7ff 0%,#f7fcff 100%);border-color:#cceafa}
+.admin-content-supervision .admin-metrics:nth-of-type(2) .admin-metric:nth-child(1)>strong{color:#1688b8}
+.admin-content-supervision .admin-metrics:nth-of-type(2) .admin-metric:nth-child(1) .admin-metric-top i{background:#d4f1ff;color:#1688b8}
+.admin-content-supervision .admin-metrics:nth-of-type(2) .admin-metric:nth-child(2){background:linear-gradient(135deg,#fff0e9 0%,#fffaf7 100%);border-color:#f8d9cb}
+.admin-content-supervision .admin-metrics:nth-of-type(2) .admin-metric:nth-child(2)>strong{color:#d56c42}
+.admin-content-supervision .admin-metrics:nth-of-type(2) .admin-metric:nth-child(2) .admin-metric-top i{background:#ffe0d2;color:#d56c42}
+.admin-content-supervision .admin-metrics:nth-of-type(2) .admin-metric:nth-child(3){background:linear-gradient(135deg,#f0edff 0%,#fbfaff 100%);border-color:#ddd7ff}
+.admin-content-supervision .admin-metrics:nth-of-type(2) .admin-metric:nth-child(3)>strong{color:#6654cb}
+.admin-content-supervision .admin-metrics:nth-of-type(2) .admin-metric:nth-child(3) .admin-metric-top i{background:#e2ddff;color:#6654cb}
+.admin-content-supervision .admin-metrics:nth-of-type(2) .admin-metric:nth-child(4){background:linear-gradient(135deg,#e8f8ee 0%,#f9fdf9 100%);border-color:#ccebd6}
+.admin-content-supervision .admin-metrics:nth-of-type(2) .admin-metric:nth-child(4)>strong{color:#19834c}
+.admin-content-supervision .admin-metrics:nth-of-type(2) .admin-metric:nth-child(4) .admin-metric-top i{background:#d6f2df;color:#19834c}
+.admin-content-supervision .admin-metrics:nth-of-type(2) .admin-metric.emphasis{background:linear-gradient(135deg,#e8f8ee 0%,#f9fdf9 100%);border-color:#ccebd6}
+@media(max-width:720px){
+  .admin-content-supervision .admin-metric{min-height:120px;padding:12px}
+  .admin-content-supervision .admin-metric>strong{font-size:25px}
+  .admin-content-supervision .admin-metric-top{align-items:flex-start}
+}
+@media(prefers-reduced-motion:reduce){
+  .admin-content-supervision .admin-metric{transition:none}
+  .admin-content-supervision .admin-metric:hover{transform:none}
+}
