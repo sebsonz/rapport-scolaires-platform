@@ -80,7 +80,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, auth, pg_temp
 SET row_security = off
-AS $
+AS $$
 DECLARE
   v_organization public.organizations;
 BEGIN
@@ -127,7 +127,7 @@ BEGIN
   );
   RETURN NEW;
 END;
-$;
+$$;
 
 DROP TRIGGER IF EXISTS delivery_slips_organization_snapshot_trg ON public.delivery_slips;
 CREATE TRIGGER delivery_slips_organization_snapshot_trg
