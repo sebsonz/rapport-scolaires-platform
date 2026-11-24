@@ -353,7 +353,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       <header className="report-topbar">
         <div><h1>Tableau de bord — Rapports scolaires</h1><p>Suivi de l’enrôlement et de la livraison · {school?.name ?? 'Établissement'}</p></div>
         <div className="report-context">
-          {<label className="report-location-filter"><span>Département</span><select value={departmentId} onChange={e => selectDepartment(e.target.value)}><option value="">Choisir un département</option>{departmentOptions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>}
+          <label className="report-location-filter"><span>Département</span><select value={departmentId} onChange={e => selectDepartment(e.target.value)}><option value="">Choisir un département</option>{departmentOptions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
           {departmentId && <label className="report-location-filter"><span>Commune</span><select value={commune} onChange={e => selectCommune(e.target.value)}><option value="">Choisir une commune</option>{communeOptions.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}
           {departmentId && commune && <label className="report-location-filter"><Building2/><span className="sr-only">Établissement</span><select value={schoolId} onChange={e => selectSchool(e.target.value)}><option value="">Choisir une école</option>{filteredSchools.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
           <span><BookOpen/> {year?.label ?? 'Aucune année active'}</span>
