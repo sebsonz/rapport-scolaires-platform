@@ -93,7 +93,6 @@ export default function SchoolPedagogicalClasses({
                   )}
                   disabled={!canConfigure || busy}
                 />
-                <span className="gp-class-code">{promotion.code}</span>
                 <span className="gp-class-name">{promotion.label}</span>
                 <small>{promotion.cycle}</small>
               </label>
