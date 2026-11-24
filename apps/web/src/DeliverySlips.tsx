@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { CheckCircle2, FilePlus2, Printer, RefreshCw, Send, ShieldCheck, Truck } from 'lucide-react';
 import { supabase } from './lib/supabase';
+import './DeliverySlips.css';
 
 type Membership = { department_id: string | null; role: 'CENTRAL_ADMIN' | 'CATEGORY_1' | 'CATEGORY_2' };
 type School = { id: string; department_id: string; code: string; name: string };
