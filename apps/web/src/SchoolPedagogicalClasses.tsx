@@ -70,36 +70,78 @@ export default function SchoolPedagogicalClasses({
     {error && <div className="gp-message error">{error}</div>}
 
     {expanded && <div className="gp-manager">
-      <div className="gp-manager-heading">
-        <div><b>Classes du référentiel national</b><p>Cochez uniquement les classes présentes dans cet établissement.</p></div>
-        <span>{selected.length} sélectionnée(s)</span>
-      </div>
-      <div className="gp-class-list">
-        {promotions.map(promotion => (
-          <label className="gp-class-option" key={promotion.id}>
-            <input
-              type="checkbox"
-              checked={selected.includes(promotion.id)}
-              onChange={event => setSelected(current =>
-                event.target.checked
-                  ? [...current, promotion.id]
-                  : current.filter(id => id !== promotion.id)
-              )}
-              disabled={!canConfigure || busy}
-            />
-            <span className="gp-class-code">{promotion.code}</span>
-            <span className="gp-class-name">{promotion.label}</span>
-            <small>{promotion.cycle}</small>
-          </label>
-        ))}
-        {promotions.length === 0 && <div className="gp-empty">Aucune classe active dans le référentiel national.</div>}
-      </div>
-      <div className="gp-manager-footer">
-        <p>Un GP correspond à une classe. Le retrait désactive la classe sans supprimer ses rapports ni son historique.</p>
-        <button type="button" onClick={() => void saveSelection()} disabled={!canConfigure || busy}>
-          {busy ? <RefreshCw className="gp-spin" size={15}/> : <Check size={15}/>}
-          {busy ? 'Enregistrement…' : 'Enregistrer la sélection'}
-        </button>
+      <div className="gp-columns">
+        <section className="gp-column gp-reference" aria-labelledby="gp-reference-title">
+          <div className="gp-column-heading">
+            <div>
+              <span className="gp-step">RÉFÉRENTIEL NATIONAL</span>
+              <h3 id="gp-reference-title">Classes de référence</h3>
+              <p>Sélectionnez les classes qui existent dans cet établissement.</p>
+            </div>
+            <span className="gp-count">{selected.length} choisie(s)</span>
+          </div>
+          <div className="gp-class-list">
+            {promotions.map(promotion => (
+              <label className="gp-class-option" key={promotion.id}>
+                <input
+                  type="checkbox"
+                  checked={selected.includes(promotion.id)}
+                  onChange={event => setSelected(current =>
+                    event.target.checked
+                      ? [...current, promotion.id]
+                      : current.filter(id => id !== promotion.id)
+                  )}
+                  disabled={!canConfigure || busy}
+                />
+                <span className="gp-class-code">{promotion.code}</span>
+                <span className="gp-class-name">{promotion.label}</span>
+                <small>{promotion.cycle}</small>
+              </label>
+            ))}
+            {promotions.length === 0 && <div className="gp-empty">Aucune classe active dans le référentiel national.</div>}
+          </div>
+          <div className="gp-column-footer">
+            <p>Cette liste contient toutes les classes actives proposées au niveau national.</p>
+            <button type="button" onClick={() => void saveSelection()} disabled={!canConfigure || busy}>
+              {busy ? <RefreshCw className="gp-spin" size={15}/> : <Check size={15}/>}
+              {busy ? 'Enregistrement…' : 'Enregistrer la sélection'}
+            </button>
+          </div>
+        </section>
+
+        <section className="gp-column gp-school" aria-labelledby="gp-school-title">
+          <div className="gp-column-heading">
+            <div>
+              <span className="gp-step">ÉTABLISSEMENT</span>
+              <h3 id="gp-school-title">Classes de l’école / GP</h3>
+              <p>Liste des classes déjà enregistrées pour cet établissement.</p>
+            </div>
+            <span className="gp-count gp-count-school">{activePromotionIds.length} active(s)</span>
+          </div>
+          <div className="gp-school-list">
+            {activePromotionIds.map(id => {
+              const promotion = promotions.find(item => item.id === id);
+              return promotion ? (
+                <div className="gp-school-option" key={id}>
+                  <span className="gp-school-check"><Check size={14}/></span>
+                  <span className="gp-class-code">{promotion.code}</span>
+                  <span className="gp-class-name">{promotion.label}</span>
+                  <small>{promotion.cycle}</small>
+                </div>
+              ) : null;
+            })}
+            {activePromotionIds.length === 0 && (
+              <div className="gp-school-empty">
+                <BookOpen size={23}/>
+                <b>Aucune classe affectée</b>
+                <span>Cochez les classes dans le référentiel national, puis enregistrez votre sélection.</span>
+              </div>
+            )}
+          </div>
+          <div className="gp-school-footnote">
+            Les classes apparaissent ici après enregistrement. Leur retrait les désactive sans effacer les rapports ni l’historique.
+          </div>
+        </section>
       </div>
       {!canConfigure && <div className="gp-readonly">Consultation seule : la gestion des GP est réservée à la Catégorie 1.</div>}
     </div>}
