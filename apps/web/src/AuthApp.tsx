@@ -4,12 +4,13 @@ import { useAuth } from './auth/AuthContext';
 import AdminDashboard from './AdminDashboard';
 import SchoolReportDashboard from './SchoolReportDashboard';
 import './DepartmentWorkspace.css';
+import HomePage from './HomePage';
 
-type View = 'LOGIN' | 'SIGNUP';
+type View = 'HOME' | 'LOGIN' | 'SIGNUP';
 
 export default function AuthApp() {
   const { session, profile, accessRequest, memberships, loading, accessError, signIn, signUp, signOut } = useAuth();
-  const [view, setView] = useState<View>('LOGIN');
+  const [view, setView] = useState<View>('HOME');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -80,6 +81,8 @@ export default function AuthApp() {
 
     return <SchoolReportDashboard memberships={memberships} onSignOut={() => void signOut()}/>;
   }
+
+  if (view === 'HOME') return <HomePage onLogin={() => setView('LOGIN')} onSignup={() => setView('SIGNUP')} />;
 
   return (
     <main className="auth-page">
