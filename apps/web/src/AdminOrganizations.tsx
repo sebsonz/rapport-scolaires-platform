@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import {
-  Building2, Check, ChevronRight, CirclePause, FileText, ImagePlus, Mail, MapPin,
-  Pencil, Phone, Plus, RefreshCw, Search, ShieldCheck, UserMinus, UserPlus, Users, X,
+  Building2, Check, CirclePause, FileText, ImagePlus, Mail, MapPin,
+  Pencil, Phone, Plus, RefreshCw, Search, ShieldCheck, UserMinus, UserPlus, X,
 } from 'lucide-react';
 import type { UserProfile } from './auth/AuthContext';
 import { supabase } from './lib/supabase';
@@ -261,8 +261,9 @@ export default function AdminOrganizations({ profiles, approvedUserIds }: Props)
     if (!supabase) return;
     const nextActive = item.status !== 'ACTIVE';
     const action = nextActive ? 'réactiver' : 'suspendre';
-    const reason = window.prompt(`Motif pour ${action} « ${item.legal_name} » (facultatif) :`) ?? '';
-    if (reason === null) return;
+    const reasonInput = window.prompt(`Motif pour ${action} « ${item.legal_name} » (facultatif) :`);
+    if (reasonInput === null) return;
+    const reason = reasonInput;
     if (!window.confirm(`Confirmer la ${action} de « ${item.legal_name} » ?`)) return;
     setBusy(true);
     setError('');
