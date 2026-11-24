@@ -68,6 +68,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       supabase.from('school_years').select('id,code,label').eq('is_active', true).order('starts_on', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('promotions').select('id,code,label,cycle').eq('is_active', true).order('display_order').order('label'),
     ]);
+    if (requestId !== loadRequestRef.current) return;
     const firstError = schoolResult.error ?? yearResult.error ?? promotionResult.error;
     if (firstError) { setError(firstError.message); setLoading(false); return; }
     const visibleSchools = (schoolResult.data ?? []).filter(s => isCentralAdmin || departmentIds.includes(s.department_id));
@@ -102,6 +103,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       const { data, error: operationError } = await supabase.from('school_report_operations')
         .select('id,pedagogical_group_id,operation_type,quantity,created_at,note')
         .in('pedagogical_group_id', nextGroups.map(g => g.id)).order('created_at', { ascending: false });
+      if (requestId !== loadRequestRef.current) return;
       if (operationError) setError(operationError.message);
       setOperations((data ?? []) as Operation[]);
     } else setOperations([]);
