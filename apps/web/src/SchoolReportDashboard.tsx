@@ -168,8 +168,17 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!supabase || !selectedGroup) return;
-    setBusy(true); setError(''); setNotice('');
+    setError('');
+    setNotice('');
+    if (!supabase) {
+      setError('La connexion à Supabase est indisponible. Rechargez la page puis réessayez.');
+      return;
+    }
+    if (!selectedGroup) {
+      setError('Sélectionnez une classe avant d’enregistrer la livraison.');
+      return;
+    }
+    setBusy(true);
     try {
       if (entryType === 'INITIAL') {
         if (!canEnrollment) throw new Error('Cette saisie est réservée à la Catégorie 1.');
@@ -190,7 +199,12 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
           p_pedagogical_group_id: selectedGroup,
           p_operation_type: entryType,
           p_quantity: amount,
-          p_idempotency_key: crypto.randomUUID(),
+          p_idempotency_key: globalThis.crypto?.randomUUID
+            ? globalThis.crypto.randomUUID()
+            : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => {
+                const random = Math.random() * 16 | 0;
+                return (char === 'x' ? random : (random & 0x3 | 0x8)).toString(16);
+              }),
           p_note: note.trim() || null,
         });
         if (rpcError) throw rpcError;
@@ -199,7 +213,12 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       setQuantity(''); setNote('');
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Échec de l’enregistrement.');
+      const message = cause instanceof Error
+        ? cause.message
+        : typeof cause === 'object' && cause !== null && 'message' in cause
+          ? String((cause as { message: unknown }).message)
+          : 'Échec de l’enregistrement.';
+      setError(message);
     } finally { setBusy(false); }
   }
 
@@ -292,7 +311,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
                 {editingInitial && <button className="report-submit" type="submit" disabled={busy || !selectedGroup}>{busy ? 'Enregistrement…' : hasInitialReport ? 'Enregistrer les modifications' : 'Enregistrer l’enrôlement initial'}</button>}
               </> : <label>{entryType === 'DELIVERY_REPRINT' ? "Nombre de réimpressions" : activeEntryCategory === 'CATEGORY_2' ? "Quantité livrée" : "Quantité à enrôler"}<input type="number" min="1" step="1" value={quantity} onChange={e => setQuantity(e.target.value)} required/></label>}
               {entryType !== 'INITIAL' && <label>Observations (facultatif)<textarea value={note} onChange={e => setNote(e.target.value)} rows={2}/></label>}
-              {entryType !== 'INITIAL' && <button className="report-submit" disabled={busy || !selectedGroup}>{busy ? 'Enregistrement…' : 'Enregistrer l’opération'}</button>}
+              {entryType !== 'INITIAL' && <button type="submit" className="report-submit" disabled={busy || !selectedGroup}>{busy ? 'Enregistrement…' : 'Enregistrer l’opération'}</button>}
             </form>
             <article className="report-panel report-history" id="historique"><h3><History/> Dernières opérations</h3>{operations.slice(0,8).map(op => <div className="report-history-row" key={op.id}><span>{operationLabels[op.operation_type] ?? op.operation_type}</span><b>{fmt(op.quantity)}</b><small>{new Date(op.created_at).toLocaleString('fr-FR')}</small></div>)}{operations.length === 0 && <div className="report-empty">Aucune opération enregistrée.</div>}</article>
           </section>
