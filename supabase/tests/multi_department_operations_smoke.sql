@@ -18,6 +18,8 @@ insert into public.school_years(code,label)
 values ('2026-2027','2026-2027')
 on conflict (code) do update set label = excluded.label
 returning id as school_year_id \gset
+create temp table smoke_context as
+select :'school_year_id'::uuid as school_year_id;
 
 insert into public.promotions(id,code,label,cycle) values
  ('ffffffff-ffff-4fff-8fff-ffffffffffff','4EME','4ème','1er');
@@ -101,7 +103,7 @@ do $$
 declare v_row record;
 begin
   select * into v_row
-  from public.get_department_situations(:'school_year_id')
+  from public.get_department_situations((select school_year_id from pg_temp.smoke_context))
   where department_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
   if v_row.total_effectif<>72 or v_row.total_enrolled<>72 or v_row.enrollment_corrections<>3 then
@@ -113,7 +115,7 @@ begin
   if v_row.enrollment_rate<>100 or v_row.delivery_rate<>100 or v_row.anomaly_count<>0 then
     raise exception 'Taux ou anomalies incorrects: %',row_to_json(v_row);
   end if;
-  if (select count(*) from public.get_department_situations(:'school_year_id'))<>2 then
+  if (select count(*) from public.get_department_situations((select school_year_id from pg_temp.smoke_context)))<>2 then
     raise exception 'La situation ne retourne pas les deux départements autorisés';
   end if;
 end $$;
