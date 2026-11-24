@@ -110,15 +110,28 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
     if (!nextSchoolId || !nextYear) {
       setGroups([]); setSlips([]); setLines([]); setLoading(false); return;
     }
-    const [groupResult, slipResult] = await Promise.all([
+    // Historique de l'établissement : toutes les années et tous les statuts, brouillons inclus.
+    const slipResult = await supabase.from('delivery_slips')
+      .select('id,school_id,school_year_id,slip_number,delivery_date,status,observations,responsible_agent,created_by,creator_role,creator_full_name,validated_by,validated_at,organization_snapshot')
+      .eq('school_id', nextSchoolId).order('created_at', { ascending: false });
+    if (slipResult.error) { setError(slipResult.error.message); setLoading(false); return; }
+    const nextSlips = (slipResult.data ?? []) as Slip[];
+    setSlips(nextSlips);
+    const nextSelected = nextSlips.some(item => item.id === selectedSlipId) ? selectedSlipId : nextSlips[0]?.id ?? '';
+    setSelectedSlipId(nextSelected);
+    const selectedYearId = nextSlips.find(item => item.id === nextSelected)?.school_year_id ?? nextYear.id;
+    const [groupResult, lineResult] = await Promise.all([
       supabase.from('pedagogical_groups').select('id,school_id,school_year_id,promotion_id,group_code')
-        .eq('school_id', nextSchoolId).eq('school_year_id', nextYear.id).order('created_at'),
-      supabase.from('delivery_slips').select('id,school_id,school_year_id,slip_number,delivery_date,status,observations,responsible_agent,created_by,creator_role,creator_full_name,validated_by,validated_at,organization_snapshot')
-        .eq('school_id', nextSchoolId).eq('school_year_id', nextYear.id).order('created_at', { ascending: false }),
+        .eq('school_id', nextSchoolId).eq('school_year_id', selectedYearId).order('created_at'),
+      nextSelected ? supabase.from('delivery_slip_lines').select('id,delivery_slip_id,promotion_id,group_code,quantity_delivered')
+        .eq('delivery_slip_id', nextSelected).order('created_at') : Promise.resolve({ data: [], error: null }),
     ]);
-    if (groupResult.error || slipResult.error) {
-      setError(groupResult.error?.message ?? slipResult.error?.message ?? 'Impossible de charger les bordereaux.');
+    if (groupResult.error || lineResult.error) {
+      setError(groupResult.error?.message ?? lineResult.error?.message ?? 'Impossible de charger les lignes du bordereau.');
       setLoading(false); return;
+    }
+    setGroups((groupResult.data ?? []) as PedagogicalGroup[]);
+    setLines((lineResult.data ?? []) as Line[]);    setLoading(false); return;
     }
     setGroups((groupResult.data ?? []) as PedagogicalGroup[]);
     const nextSlips = (slipResult.data ?? []) as Slip[];
@@ -226,7 +239,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
       <section className="delivery-panel">
         <h3>Historique des bordereaux <span>{slips.length}</span></h3>
         <label className="delivery-school-filter">Établissement<select value={schoolId} onChange={event => { setSchoolId(event.target.value); setSelectedSlipId(''); }}><option value="">Choisir</option>{schools.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <div className="delivery-slip-list">{slips.map(item => <button type="button" key={item.id} className={item.id === selectedSlipId ? 'selected' : ''} onClick={() => setSelectedSlipId(item.id)}><span><b>{item.slip_number}</b><small>{new Date(item.delivery_date).toLocaleDateString('fr-FR')} · {item.creator_full_name ?? 'Ancien bordereau'}</small></span><em className={'status '+item.status.toLowerCase()}>{statusLabels[item.status]}</em></button>)}{slips.length === 0 && <p className="delivery-empty">Aucun bordereau pour cet établissement et cette année.</p>}</div>
+        <div className="delivery-slip-list">{slips.map(item => <button type="button" key={item.id} className={item.id === selectedSlipId ? 'selected' : ''} onClick={() => setSelectedSlipId(item.id)}><span><b>{item.slip_number}</b><small>{new Date(item.delivery_date).toLocaleDateString('fr-FR')} · {item.creator_full_name ?? 'Ancien bordereau'}</small></span><em className={'status '+item.status.toLowerCase()}>{statusLabels[item.status]}</em></button>)}{slips.length === 0 && <p className="delivery-empty">Aucun bordereau enregistré pour cet établissement.</p>}</div>
       </section>
     </div>
     {selectedSlip && <section className="delivery-panel delivery-document" id="delivery-print">
