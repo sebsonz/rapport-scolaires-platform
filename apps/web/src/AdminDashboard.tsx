@@ -8,6 +8,7 @@ import { supabase } from './lib/supabase';
 import type { UserProfile } from './auth/AuthContext';
 import AdminSchools from './AdminSchools';
 import AdminClasses from './AdminClasses';
+import AdminOrganizations from './AdminOrganizations';
 
 type Role = 'CATEGORY_1' | 'CATEGORY_2';
 type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -19,12 +20,13 @@ type Assignment = { department_id: string; role: Role };
 type SupervisionDepartment = { department_id:string; code:string; name:string; schools:number; groups:number; reports:number; capacity:number; enrollment_initial:number; enrollment_ratissage:number; enrolled:number; enrollment_corrections:number; delivered_unique:number; delivery_initial:number; delivery_ratissage:number; delivery_correction:number; reprints:number; enrollment_rate:number|null; delivery_rate:number|null; anomalies:number };
 type SupervisionSchool = { school_id:string; department_id:string; code:string; name:string; groups:number; reports:number; capacity:number; enrollment_initial:number; enrollment_ratissage:number; enrolled:number; delivery_initial:number; delivery_ratissage:number; delivery_correction:number; delivered_unique:number; reprints:number; enrollment_remaining:number; delivery_remaining:number };
 type OperationalSupervision = { school_year:{id:string;code:string;label:string;is_active:boolean}|null; totals:Record<string,number>; departments:SupervisionDepartment[]; schools:SupervisionSchool[] };
-type Tab = 'overview' | 'supervision' | 'requests' | 'users' | 'departments' | 'schools' | 'classes' | 'audit';
+type Tab = 'overview' | 'supervision' | 'requests' | 'users' | 'organizations' | 'departments' | 'schools' | 'classes' | 'audit';
 
 const labels: Record<Tab, string> = {
   overview: 'Vue générale',
   requests: 'Demandes d’accès',
   users: 'Utilisateurs',
+  organizations: 'Organisations / Compagnies',
   departments: 'Départements',
   schools: 'Écoles',
   classes: 'Classes',
@@ -173,6 +175,7 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
             ['supervision', Activity, 'Supervision des activités'],
             ['requests', ClipboardCheck, 'Demandes d’accès'],
             ['users', Users, 'Utilisateurs'],
+            ['organizations', Building2, 'Organisations / Compagnies'],
             ['departments', Building2, 'Départements'],
             ['schools', GraduationCap, 'Écoles'],
             ['classes', BookOpen, 'Classes'],
@@ -281,6 +284,7 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
             {departments.length === 0 && <Empty text="Aucun département créé. Ajoutez le premier département."/>}
           </section>}
 
+          {!loading && tab === 'organizations' && <AdminOrganizations profiles={profiles} approvedUserIds={requests.filter(item => item.status === 'APPROVED').map(item => item.user_id)}/>}
           {!loading && tab === 'schools' && <AdminSchools departments={departments}/>}
           {!loading && tab === 'classes' && <AdminClasses/>}
 
