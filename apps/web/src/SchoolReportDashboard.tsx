@@ -6,6 +6,7 @@ import {
 import { supabase } from './lib/supabase';
 import './SchoolReportDashboard.css';
 import SchoolPedagogicalClasses from './SchoolPedagogicalClasses';
+import DeliverySlips from './DeliverySlips';
 
 type Membership = { department_id: string | null; role: 'CENTRAL_ADMIN' | 'CATEGORY_1' | 'CATEGORY_2' };
 type Department = { id: string; code: string; name: string };
@@ -342,7 +343,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
   return <div className="report-app">
     <aside className="report-sidebar">
       <div className="report-brand"><GraduationCap/><b>Rapports<br/>Scolaires</b></div>
-      <nav><a className="active"><Activity/> Tableau de bord</a><a href="#collecte"><ClipboardList/> Collecte des données</a><a href="#classes"><BookOpen/> Suivi par classes</a><a href="#historique"><History/> Historique des opérations</a></nav>
+      <nav><a className="active"><Activity/> Tableau de bord</a><a href="#collecte"><ClipboardList/> Collecte des données</a><a href="#classes"><BookOpen/> Suivi par classes</a><a href="#historique"><History/> Historique des opérations</a><a href="#bordereaux"><Truck/> Bordereaux de livraison</a></nav>
       <div className="report-user"><div className="report-avatar"><Users/></div><span>Agent de collecte</span><button onClick={onSignOut} title="Se déconnecter"><LogOut/></button></div>
     </aside>
     <main className="report-main">
@@ -406,6 +407,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
             </form>
             <article className="report-panel report-history" id="historique"><h3><History/> Dernières opérations</h3>{operations.slice(0,8).map(op => <div className="report-history-row" key={op.id}><span>{operationLabels[op.operation_type] ?? op.operation_type}</span><b>{fmt(op.quantity)}</b><small>{new Date(op.created_at).toLocaleString('fr-FR')}</small></div>)}{operations.length === 0 && <div className="report-empty">Aucune opération enregistrée.</div>}</article>
           </section>
+          <section id="bordereaux"><DeliverySlips memberships={memberships}/></section>
         </>}
       </>}
     </main>
