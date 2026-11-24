@@ -6,7 +6,7 @@ import './AdminSchools.css';
 type Department = { id: string; code: string; name: string };
 type Commune = { id: string; department_id: string; code: string; name: string; is_active: boolean };
 type School = {
-  id: string; department_id: string; code: string; name: string; commune_id: string;
+  id: string; department_id: string; code: string; name: string; commune_id: string | null;
   arrondissement: string | null; locality: string | null; phone: string | null;
   director_name: string | null; is_active: boolean; created_at: string;
 };
@@ -70,7 +70,7 @@ export default function AdminSchools({ departments }: { departments: Department[
     setModalOpen(true);
     setForm(school ? {
       department_id: school.department_id, code: school.code, name: school.name,
-      commune_id: school.commune_id, arrondissement: school.arrondissement ?? '',
+      commune_id: school.commune_id ?? '', arrondissement: school.arrondissement ?? '',
       locality: school.locality ?? '', phone: school.phone ?? '',
       director_name: school.director_name ?? '',
     } : emptyForm(departments[0]?.id ?? ''));
