@@ -37,7 +37,7 @@ BEGIN
     RAISE EXCEPTION 'Authentification requise';
   END IF;
 
-  IF p_creator_role NOT IN ('CENTRAL_ADMIN', 'CATEGORY_1', 'CATEGORY_2') THEN
+  IF p_creator_role IS NULL OR p_creator_role NOT IN ('CENTRAL_ADMIN', 'CATEGORY_1', 'CATEGORY_2') THEN
     RAISE EXCEPTION 'Rôle créateur invalide';
   END IF;
 
@@ -63,6 +63,13 @@ BEGIN
     ) THEN
       RAISE EXCEPTION 'Vous ne possédez pas ce rôle dans le département de cet établissement';
     END IF;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.school_years
+    WHERE id = p_school_year_id AND is_active = true
+  ) THEN
+    RAISE EXCEPTION 'L’année scolaire sélectionnée n’est pas active';
   END IF;
 
   IF nullif(trim(coalesce(p_slip_number, '')), '') IS NULL THEN
