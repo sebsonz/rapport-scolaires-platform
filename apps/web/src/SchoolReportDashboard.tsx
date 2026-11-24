@@ -39,6 +39,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   const [operations, setOperations] = useState<Operation[]>([]);
   const [selectedGroup, setSelectedGroup] = useState('');
   const [entryType, setEntryType] = useState('INITIAL');
+  const [selectedEntryCategory, setSelectedEntryCategory] = useState<'CATEGORY_1' | 'CATEGORY_2'>('CATEGORY_1');
   const [quantity, setQuantity] = useState('');
   const [capacity, setCapacity] = useState('');
   const [initialEnrollment, setInitialEnrollment] = useState('');
@@ -202,20 +203,35 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     } finally { setBusy(false); }
   }
 
-  useEffect(() => {
-    if (!allowedTypes.some(type => type.value === entryType) && allowedTypes.length > 0) {
-      setEntryType(allowedTypes[0].value);
-    }
-  }, [allowedTypes.map(type => type.value).join('|'), entryType]);
-
   const fmt = (value: number) => value.toLocaleString('fr-FR');
   const enrollmentRate = totals.capacity ? totals.enrolled / totals.capacity * 100 : 0;
   const deliveryRate = totals.enrolled ? totals.delivered / totals.enrolled * 100 : 0;
-  const allowedTypes = [
-    ...(canEnrollment ? [{ value: 'INITIAL', label: 'Enrôlement initial' }, { value: 'ENROLLMENT_RATISSAGE', label: 'Ratissage' }, { value: 'ENROLLMENT_CORRECTION', label: 'Correction' }] : []),
-    ...(canDelivery ? [{ value: 'DELIVERY_INITIAL', label: 'Livraison initiale' }, { value: 'DELIVERY_RATISSAGE', label: 'Livraison ratissage' },
-      { value: 'DELIVERY_CORRECTION_FIRST_ISSUE', label: 'Livraison correction' }, { value: 'DELIVERY_REPRINT', label: 'Réimpression' }] : []),
+  const hasBothEntryCategories = canEnrollment && canDelivery;
+  const activeEntryCategory = canEnrollment && canDelivery
+    ? selectedEntryCategory
+    : canDelivery ? 'CATEGORY_2' : 'CATEGORY_1';
+  const category1Types = [
+    { value: 'INITIAL', label: 'Enrôlement initial' },
+    { value: 'ENROLLMENT_RATISSAGE', label: 'Ratissage' },
+    { value: 'ENROLLMENT_CORRECTION', label: 'Correction' },
   ];
+  const category2Types = [
+    { value: 'DELIVERY_INITIAL', label: 'Livraison initiale' },
+    { value: 'DELIVERY_RATISSAGE', label: 'Livraison ratissage' },
+    { value: 'DELIVERY_CORRECTION_FIRST_ISSUE', label: 'Livraison correction' },
+    { value: 'DELIVERY_REPRINT', label: 'Réimpression' },
+  ];
+  const allowedTypes = activeEntryCategory === 'CATEGORY_1'
+    ? (canEnrollment ? category1Types : [])
+    : (canDelivery ? category2Types : []);
+
+  useEffect(() => {
+    if (!allowedTypes.some(type => type.value === entryType) && allowedTypes.length > 0) {
+      setEntryType(allowedTypes[0].value);
+      setQuantity('');
+      setNote('');
+    }
+  }, [allowedTypes.map(type => type.value).join('|'), entryType]);
 
   return <div className="report-app">
     <aside className="report-sidebar">
@@ -261,8 +277,14 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
             </tbody></table>{rows.length === 0 && <div className="report-empty">Aucune classe n’est encore affectée à cet établissement pour l’année active.</div>}</div>
           </section>
           <section className="report-entry-grid" id="collecte">
-            <form className={`report-panel report-entry ${!canEnrollment && canDelivery ? 'report-entry-delivery' : ''}`} onSubmit={submit}><h3>{!canEnrollment && canDelivery ? <><Truck/> Saisie des livraisons — Catégorie 2</> : canEnrollment && !canDelivery ? <><Users/> Saisie de l’enrôlement — Catégorie 1</> : <><ClipboardList/> Saisie des opérations</>}</h3>{!canEnrollment && canDelivery && <p className="report-entry-intro">Enregistrez les quantités livrées pour une classe déjà affectée à cet établissement. Les données mettent à jour les mêmes lignes du tableau partagé.</p>}
-              <label>{!canEnrollment && canDelivery ? "Type de livraison" : "Type d’opération"}<select value={entryType} onChange={e => setEntryType(e.target.value)}>{allowedTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
+            <form className={`report-panel report-entry ${activeEntryCategory === 'CATEGORY_2' ? 'report-entry-delivery' : ''}`} onSubmit={submit}>
+              <h3>{activeEntryCategory === 'CATEGORY_2' ? <><Truck/> Saisie des livraisons — Catégorie 2</> : <><Users/> Saisie de l’enrôlement — Catégorie 1</>}</h3>
+              {hasBothEntryCategories && <div className="report-entry-category-switch" role="group" aria-label="Catégorie de saisie">
+                <button type="button" className={activeEntryCategory === 'CATEGORY_1' ? 'active category-one' : 'category-one'} onClick={() => { setSelectedEntryCategory('CATEGORY_1'); setEntryType('INITIAL'); setQuantity(''); setNote(''); setError(''); setNotice(''); }}> <Users size={16}/> Catégorie 1</button>
+                <button type="button" className={activeEntryCategory === 'CATEGORY_2' ? 'active category-two' : 'category-two'} onClick={() => { setSelectedEntryCategory('CATEGORY_2'); setEntryType('DELIVERY_INITIAL'); setQuantity(''); setNote(''); setError(''); setNotice(''); }}> <Truck size={16}/> Catégorie 2</button>
+              </div>}
+              {activeEntryCategory === 'CATEGORY_2' && <p className="report-entry-intro">Enregistrez les quantités livrées pour une classe déjà affectée à cet établissement. Les données mettent à jour les mêmes lignes du tableau partagé.</p>}
+              <label>{activeEntryCategory === 'CATEGORY_2' ? "Type de livraison" : "Type d’opération"}<select value={entryType} onChange={e => setEntryType(e.target.value)}>{allowedTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
               <label>Classe<select value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)} required><option value="">Sélectionner une classe</option>{rows.map(r => <option key={r.group.id} value={r.group.id}>{r.promotion?.code} · {r.group.group_code}</option>)}</select></label>
               {entryType === 'INITIAL' ? <>
                 {hasInitialReport && !editingInitial && <div className="report-initial-status"><span>Données initiales déjà enregistrées pour cette classe.</span><button type="button" className="report-edit-button" onClick={() => setEditingInitial(true)}>Modifier</button></div>}
