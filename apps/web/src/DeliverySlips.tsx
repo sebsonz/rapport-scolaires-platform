@@ -224,12 +224,17 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
         </form>
       </section>
       <section className="delivery-panel">
+        <label className="delivery-school-filter">Établissement
+          <select value={schoolId} onChange={event => { setSchoolId(event.target.value); setSelectedSlipId(''); }}>
+            <option value="">Choisir un établissement</option>
+            {schools.map(item => <option key={item.id} value={item.id}>{item.name} · {item.code}</option>)}
+          </select>
+        </label>
         <h3>Historique des bordereaux <span>{slips.length}</span></h3>
-        <label className="delivery-school-filter">Établissement<select value={schoolId} onChange={event => { setSchoolId(event.target.value); setSelectedSlipId(''); }}><option value="">Choisir</option>{schools.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <div className="delivery-slip-list">{slips.map(item => <button type="button" key={item.id} className={item.id === selectedSlipId ? 'selected' : ''} onClick={() => setSelectedSlipId(item.id)}><span><b>{item.slip_number}</b><small>{new Date(item.delivery_date).toLocaleDateString('fr-FR')} · {item.creator_full_name ?? 'Ancien bordereau'}</small></span><em className={'status '+item.status.toLowerCase()}>{statusLabels[item.status]}</em></button>)}{slips.length === 0 && <p className="delivery-empty">Aucun bordereau enregistré pour cet établissement.</p>}</div>
       </section>
     </div>
-    {selectedSlip && <section className="delivery-panel delivery-document" id="delivery-print">
+    {selectedSlip && <section className="delivery-panel delivery-document delivery-print-only" id="delivery-print">
       <div className="delivery-brandbar">
         <div className="delivery-brand"><div className="delivery-logo">{logoUrl ? <img src={logoUrl} alt="Logo de l’organisation"/> : <span>O</span>}</div><div><h1>{issuerName}</h1><p>{String(issuer.address ?? issuer.country ?? 'COTONOU - BÉNIN')}</p></div></div>
         <div className="delivery-platform-brand"><b>Rapports Scolaires 2026 – 2027</b><span>Gestion et suivi des cartes scolaires</span></div>
