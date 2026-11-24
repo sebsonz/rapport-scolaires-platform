@@ -12,15 +12,21 @@ insert into public.schools(id,department_id,code,name) values
  ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','SCH-01','École Test 1'),
  ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','SCH-02','École Test 2');
 
-insert into public.school_years(id,code,label) values
- ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','2026-2027','2026-2027');
+-- The rollout migration may already have created the active 2026-2027 year.
+-- Reuse its canonical ID so this smoke test works after every migration.
+insert into public.school_years(code,label)
+values ('2026-2027','2026-2027')
+on conflict (code) do update set label = excluded.label
+returning id as school_year_id \gset
+create temp table smoke_context as
+select :'school_year_id'::uuid as school_year_id;
 
 insert into public.promotions(id,code,label,cycle) values
  ('ffffffff-ffff-4fff-8fff-ffffffffffff','4EME','4ème','1er');
 
 insert into public.pedagogical_groups(id,school_id,school_year_id,promotion_id,group_code) values
- ('12121212-1212-4121-8121-121212121212','cccccccc-cccc-4ccc-8ccc-cccccccccccc','eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','ffffffff-ffff-4fff-8fff-ffffffffffff','4E-I'),
- ('13131313-1313-4131-8131-131313131313','dddddddd-dddd-4ddd-8ddd-dddddddddddd','eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','ffffffff-ffff-4fff-8fff-ffffffffffff','4E-II');
+ ('12121212-1212-4121-8121-121212121212','cccccccc-cccc-4ccc-8ccc-cccccccccccc',:'school_year_id','ffffffff-ffff-4fff-8fff-ffffffffffff','4E-I'),
+ ('13131313-1313-4131-8131-131313131313','dddddddd-dddd-4ddd-8ddd-dddddddddddd',:'school_year_id','ffffffff-ffff-4fff-8fff-ffffffffffff','4E-II');
 
 insert into public.school_memberships(user_id,department_id,role) values
  ('99999999-9999-4999-8999-999999999999',null,'CENTRAL_ADMIN');
@@ -97,7 +103,7 @@ do $$
 declare v_row record;
 begin
   select * into v_row
-  from public.get_department_situations('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee')
+  from public.get_department_situations((select school_year_id from pg_temp.smoke_context))
   where department_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
   if v_row.total_effectif<>72 or v_row.total_enrolled<>72 or v_row.enrollment_corrections<>3 then
@@ -109,7 +115,7 @@ begin
   if v_row.enrollment_rate<>100 or v_row.delivery_rate<>100 or v_row.anomaly_count<>0 then
     raise exception 'Taux ou anomalies incorrects: %',row_to_json(v_row);
   end if;
-  if (select count(*) from public.get_department_situations('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'))<>2 then
+  if (select count(*) from public.get_department_situations((select school_year_id from pg_temp.smoke_context)))<>2 then
     raise exception 'La situation ne retourne pas les deux départements autorisés';
   end if;
 end $$;
