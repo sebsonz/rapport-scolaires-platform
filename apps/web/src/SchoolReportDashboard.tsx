@@ -14,6 +14,7 @@ type Promotion = { id: string; code: string; label: string; cycle: string };
 type Group = { id: string; school_id: string; school_year_id: string; promotion_id: string; group_code: string; is_active: boolean };
 type Report = { id: string; pedagogical_group_id: string; report_data: Record<string, unknown> };
 type Operation = { id: string; pedagogical_group_id: string; operation_type: string; quantity: number; created_at: string; note: string | null };
+type DeliveryInitialCorrection = { id: string; school_report_id: string; quantity: number; created_at: string; note: string | null };
 
 const operationLabels: Record<string, string> = {
   ENROLLMENT_RATISSAGE: 'Ratissage',
@@ -37,6 +38,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   const [groups, setGroups] = useState<Group[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [operations, setOperations] = useState<Operation[]>([]);
+  const [deliveryInitialCorrections, setDeliveryInitialCorrections] = useState<DeliveryInitialCorrection[]>([]);
   const [selectedGroup, setSelectedGroup] = useState('');
   const [entryType, setEntryType] = useState('INITIAL');
   const [selectedEntryCategory, setSelectedEntryCategory] = useState<'CATEGORY_1' | 'CATEGORY_2'>('CATEGORY_1');
@@ -44,6 +46,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   const [capacity, setCapacity] = useState('');
   const [initialEnrollment, setInitialEnrollment] = useState('');
   const [editingInitial, setEditingInitial] = useState(false);
+  const [editingInitialDelivery, setEditingInitialDelivery] = useState(false);
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -85,7 +88,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     schoolIdRef.current = currentSchool;
     setSchoolId(currentSchool);
     if (!currentSchool || !activeYear) {
-      setGroups([]); setReports([]); setOperations([]); setLoading(false); return;
+      setGroups([]); setReports([]); setOperations([]); setDeliveryInitialCorrections([]); setLoading(false); return;
     }
     const [groupResult, reportResult] = await Promise.all([
       supabase.from('pedagogical_groups').select('id,school_id,school_year_id,promotion_id,group_code,is_active')
@@ -108,7 +111,17 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       if (requestId !== loadRequestRef.current) return;
       if (operationError) setError(operationError.message);
       setOperations((data ?? []) as Operation[]);
-    } else setOperations([]);
+      if (nextReports.length) {
+        const { data: correctionData, error: correctionError } = await supabase
+          .from('school_report_delivery_initial_corrections')
+          .select('id,school_report_id,quantity,created_at,note')
+          .in('school_report_id', nextReports.map(report => report.id))
+          .order('created_at', { ascending: false });
+        if (requestId !== loadRequestRef.current) return;
+        if (correctionError) setError(correctionError.message);
+        setDeliveryInitialCorrections((correctionData ?? []) as DeliveryInitialCorrection[]);
+      } else setDeliveryInitialCorrections([]);
+    } else { setOperations([]); setDeliveryInitialCorrections([]); }
     setSelectedGroup(current => nextGroups.some(g => g.id === current) ? current : (nextGroups[0]?.id ?? ''));
     setLoading(false);
   }, [departmentIds, isCentralAdmin]);
@@ -118,6 +131,13 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   const school = schools.find(item => item.id === schoolId);
   const reportByGroup = useMemo(() => new Map(reports.map(r => [r.pedagogical_group_id, r])), [reports]);
   const promotionById = useMemo(() => new Map(promotions.map(p => [p.id, p])), [promotions]);
+  const latestDeliveryCorrectionByReport = useMemo(() => {
+    const latest = new Map<string, DeliveryInitialCorrection>();
+    for (const correction of deliveryInitialCorrections) {
+      if (!latest.has(correction.school_report_id)) latest.set(correction.school_report_id, correction);
+    }
+    return latest;
+  }, [deliveryInitialCorrections]);
   const rows = useMemo(() => groups.map(group => {
     const report = reportByGroup.get(group.id);
     const data = report?.report_data ?? {};
@@ -128,7 +148,10 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     const ratissage = sum('ENROLLMENT_RATISSAGE');
     const correction = sum('ENROLLMENT_CORRECTION');
     const enrolled = initial + ratissage;
-    const deliveredInitial = sum('DELIVERY_INITIAL');
+    const originalDeliveredInitial = sum('DELIVERY_INITIAL');
+    const deliveredInitial = report
+      ? Number(latestDeliveryCorrectionByReport.get(report.id)?.quantity ?? originalDeliveredInitial)
+      : originalDeliveredInitial;
     const deliveredRatissage = sum('DELIVERY_RATISSAGE');
     const deliveredCorrection = sum('DELIVERY_CORRECTION_FIRST_ISSUE');
     const reprints = sum('DELIVERY_REPRINT');
@@ -137,23 +160,35 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       deliveredInitial, deliveredRatissage, deliveredCorrection, reprints, delivered,
       enrollmentRemaining: capacity - enrolled, deliveryRemaining: enrolled - delivered,
       deliveryRate: enrolled ? delivered / enrolled * 100 : 0, hasReport: !!report };
-  }), [groups, reportByGroup, operations, promotionById]);
+  }), [groups, reportByGroup, operations, promotionById, latestDeliveryCorrectionByReport]);
 
   const selectedReport = selectedGroup ? reportByGroup.get(selectedGroup) : undefined;
   const hasInitialReport = !!selectedReport;
+  const selectedGroupOperations = operations.filter(op => op.pedagogical_group_id === selectedGroup);
+  const originalInitialDelivery = selectedGroupOperations
+    .filter(op => op.operation_type === 'DELIVERY_INITIAL')
+    .reduce((total, op) => total + Number(op.quantity), 0);
+  const selectedInitialDeliveryCorrection = selectedReport
+    ? latestDeliveryCorrectionByReport.get(selectedReport.id)
+    : undefined;
+  const effectiveInitialDelivery = Number(selectedInitialDeliveryCorrection?.quantity ?? originalInitialDelivery);
+  const hasInitialDelivery = originalInitialDelivery > 0;
 
   useEffect(() => {
     if (!selectedGroup) {
       setCapacity('');
       setInitialEnrollment('');
       setEditingInitial(false);
+      setEditingInitialDelivery(false);
       return;
     }
     const data = reportByGroup.get(selectedGroup)?.report_data;
     setCapacity(data?.C == null ? '' : String(data.C));
     setInitialEnrollment(data?.D == null ? '' : String(data.D));
     setEditingInitial(!data || (data.C == null && data.D == null));
-  }, [selectedGroup, reportByGroup]);
+    setEditingInitialDelivery(false);
+    setQuantity('');
+  }, [selectedGroup, reportByGroup, latestDeliveryCorrectionByReport, operations]);
 
   const totals = useMemo(() => rows.reduce((t, r) => ({
     capacity: t.capacity + r.capacity, initial: t.initial + r.initial, ratissage: t.ratissage + r.ratissage,
@@ -192,6 +227,17 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
         if (saveError) throw saveError;
         setNotice(hasInitialReport ? 'Modifications de la saisie initiale enregistrées.' : 'Enrôlement initial enregistré.');
         setEditingInitial(false);
+      } else if (entryType === 'DELIVERY_INITIAL' && hasInitialDelivery && editingInitialDelivery) {
+        const amount = Number(quantity);
+        if (!Number.isInteger(amount) || amount < 0) throw new Error('La quantité corrigée doit être un entier positif ou zéro.');
+        const { error: correctionError } = await supabase.rpc('correct_school_report_initial_delivery', {
+          p_pedagogical_group_id: selectedGroup,
+          p_quantity: amount,
+          p_note: note.trim() || 'Correction d’une erreur de saisie de la livraison initiale',
+        });
+        if (correctionError) throw correctionError;
+        setNotice('La livraison initiale a été corrigée. Le tableau partagé a été actualisé.');
+        setEditingInitialDelivery(false);
       } else {
         const amount = Number(quantity);
         if (!Number.isInteger(amount) || amount <= 0) throw new Error('La quantité doit être un entier positif.');
@@ -305,13 +351,14 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
               {activeEntryCategory === 'CATEGORY_2' && <p className="report-entry-intro">Enregistrez les quantités livrées pour une classe déjà affectée à cet établissement. Les données mettent à jour les mêmes lignes du tableau partagé.</p>}
               <label>{activeEntryCategory === 'CATEGORY_2' ? "Type de livraison" : "Type d’opération"}<select value={entryType} onChange={e => setEntryType(e.target.value)}>{allowedTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
               <label>Classe<select value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)} required><option value="">Sélectionner une classe</option>{rows.map(r => <option key={r.group.id} value={r.group.id}>{r.promotion?.label ?? r.promotion?.code ?? 'Classe'} · {r.group.group_code}</option>)}</select></label>
+              {entryType === 'DELIVERY_INITIAL' && hasInitialDelivery && !editingInitialDelivery && <div className="report-initial-status"><span>Livraison initiale déjà enregistrée : <b>{fmt(effectiveInitialDelivery)}</b>.</span><button type="button" className="report-edit-button" onClick={() => { setQuantity(String(effectiveInitialDelivery)); setEditingInitialDelivery(true); setNote(''); }}>Modifier</button></div>}
               {entryType === 'INITIAL' ? <>
                 {hasInitialReport && !editingInitial && <div className="report-initial-status"><span>Données initiales déjà enregistrées pour cette classe.</span><button type="button" className="report-edit-button" onClick={() => setEditingInitial(true)}>Modifier</button></div>}
                 <div className="report-entry-fields"><label>Effectif de la classe<input type="number" min="1" step="1" value={capacity} onChange={e => setCapacity(e.target.value)} required readOnly={!editingInitial}/></label><label>Effectif enrôlé initial<input type="number" min="0" step="1" value={initialEnrollment} onChange={e => setInitialEnrollment(e.target.value)} required readOnly={!editingInitial}/></label></div>
                 {editingInitial && <button className="report-submit" type="submit" disabled={busy || !selectedGroup}>{busy ? 'Enregistrement…' : hasInitialReport ? 'Enregistrer les modifications' : 'Enregistrer l’enrôlement initial'}</button>}
-              </> : <label>{entryType === 'DELIVERY_REPRINT' ? "Nombre de réimpressions" : activeEntryCategory === 'CATEGORY_2' ? "Quantité livrée" : "Quantité à enrôler"}<input type="number" min="1" step="1" value={quantity} onChange={e => setQuantity(e.target.value)} required/></label>}
+              </> : entryType === 'DELIVERY_INITIAL' && hasInitialDelivery ? <label>Quantité de livraison initiale corrigée<input type="number" min="0" step="1" value={quantity} onChange={e => setQuantity(e.target.value)} required readOnly={!editingInitialDelivery}/></label> : <label>{entryType === 'DELIVERY_REPRINT' ? "Nombre de réimpressions" : activeEntryCategory === 'CATEGORY_2' ? "Quantité livrée" : "Quantité à enrôler"}<input type="number" min="1" step="1" value={quantity} onChange={e => setQuantity(e.target.value)} required/></label>}
               {entryType !== 'INITIAL' && <label>Observations (facultatif)<textarea value={note} onChange={e => setNote(e.target.value)} rows={2}/></label>}
-              {entryType !== 'INITIAL' && <button type="submit" className="report-submit" disabled={busy || !selectedGroup}>{busy ? 'Enregistrement…' : 'Enregistrer l’opération'}</button>}
+              {entryType !== 'INITIAL' && !(entryType === 'DELIVERY_INITIAL' && hasInitialDelivery && !editingInitialDelivery) && <button type="submit" className="report-submit" disabled={busy || !selectedGroup}>{busy ? 'Enregistrement…' : entryType === 'DELIVERY_INITIAL' && hasInitialDelivery ? 'Enregistrer les modifications' : 'Enregistrer l’opération'}</button>}
             </form>
             <article className="report-panel report-history" id="historique"><h3><History/> Dernières opérations</h3>{operations.slice(0,8).map(op => <div className="report-history-row" key={op.id}><span>{operationLabels[op.operation_type] ?? op.operation_type}</span><b>{fmt(op.quantity)}</b><small>{new Date(op.created_at).toLocaleString('fr-FR')}</small></div>)}{operations.length === 0 && <div className="report-empty">Aucune opération enregistrée.</div>}</article>
           </section>
