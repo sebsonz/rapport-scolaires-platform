@@ -157,7 +157,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
     return [...map.entries()].map(([id, value]) => ({ id, ...value }));
   }, [selectedLines, promotions]);
   const total = selectedLines.reduce((sum, line) => sum + line.quantity_delivered, 0);
-  const issuer = selectedSlip?.organization_snapshot ?? {};
+  const issuer: Record<string, unknown> = selectedSlip?.organization_snapshot ?? {};
   const logoUrl = publicLogo(issuer.logo_path);
   const issuerName = String(issuer.legal_name ?? issuer.short_name ?? 'OMICROME');
   const creatorName = selectedSlip?.creator_full_name ?? '—';
