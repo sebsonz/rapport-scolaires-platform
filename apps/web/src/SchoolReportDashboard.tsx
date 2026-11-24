@@ -93,10 +93,14 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     const currentSchool = requestedSchoolId !== undefined
       ? (visibleSchools.some(s => s.id === requestedSchoolId) ? requestedSchoolId : '')
       : keepSchool && visibleSchools.some(s => s.id === preferredSchoolId)
-        ? preferredSchoolId : (visibleSchools[0]?.id ?? '');
-    const currentDepartmentId = visibleSchools.find(s => s.id === currentSchool)?.department_id ?? visibleDepartments[0]?.id ?? '';
-    if (currentSchool) setDepartmentId(currentDepartmentId);
-    if (currentSchool && !visibleSchools.some(s => s.id === preferredSchoolId)) setCommune('');
+        ? preferredSchoolId : '';
+    // Never infer the department from the first school: the user must follow
+    // the explicit Department -> Commune -> School selection hierarchy.
+    if (currentSchool) {
+      const currentDepartmentId = visibleSchools.find(s => s.id === currentSchool)?.department_id ?? '';
+      setDepartmentId(currentDepartmentId);
+    }
+    if (!currentSchool) setCommune('');
     schoolIdRef.current = currentSchool;
     setSchoolId(currentSchool);
     if (!currentSchool || !activeYear) {
@@ -138,15 +142,15 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     setLoading(false);
   }, [departmentIds, isCentralAdmin]);
 
-  useEffect(() => { void load(false); }, [load]);
+  useEffect(() => { void load(true, ''); }, [load]);
 
   const school = schools.find(item => item.id === schoolId);
   const departmentOptions = departments;
   const communeOptions = [...new Set(schools
-    .filter(item => item.department_id === departmentId && item.commune)
-    .map(item => item.commune as string))].sort((a, b) => a.localeCompare(b, 'fr'));
+    .filter(item => item.department_id === departmentId && item.commune?.trim())
+    .map(item => item.commune!.trim()))].sort((a, b) => a.localeCompare(b, 'fr'));
   const filteredSchools = schools.filter(item =>
-    (!departmentId || item.department_id === departmentId) && (!commune || item.commune === commune)
+    !!departmentId && !!commune && item.department_id === departmentId && item.commune?.trim() === commune
   );
   const selectSchool = (nextSchoolId: string) => {
     schoolIdRef.current = nextSchoolId;
@@ -155,15 +159,21 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     setQuantity(''); setNote(''); setNotice(''); setError('');
     void load(true, nextSchoolId);
   };
+  const resetSchoolContext = () => {
+    schoolIdRef.current = '';
+    setSchoolId(''); setSelectedGroup(''); setEntryType('INITIAL');
+    setCapacity(''); setInitialEnrollment(''); setQuantity(''); setNote('');
+    setNotice(''); setError('');
+    void load(true, '');
+  };
   const selectDepartment = (nextDepartmentId: string) => {
-    setDepartmentId(nextDepartmentId); setCommune('');
-    const candidates = schools.filter(item => item.department_id === nextDepartmentId);
-    selectSchool(candidates[0]?.id ?? '');
+    setDepartmentId(nextDepartmentId);
+    setCommune('');
+    resetSchoolContext();
   };
   const selectCommune = (nextCommune: string) => {
     setCommune(nextCommune);
-    const candidates = schools.filter(item => item.department_id === departmentId && (!nextCommune || item.commune === nextCommune));
-    selectSchool(candidates[0]?.id ?? '');
+    resetSchoolContext();
   };
   const reportByGroup = useMemo(() => new Map(reports.map(r => [r.pedagogical_group_id, r])), [reports]);
   const promotionById = useMemo(() => new Map(promotions.map(p => [p.id, p])), [promotions]);
@@ -344,9 +354,9 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       <header className="report-topbar">
         <div><h1>Tableau de bord — Rapports scolaires</h1><p>Suivi de l’enrôlement et de la livraison · {school?.name ?? 'Établissement'}</p></div>
         <div className="report-context">
-          {departmentOptions.length > 1 && <label className="report-location-filter"><span>Département</span><select value={departmentId} onChange={e => selectDepartment(e.target.value)}><option value="">Tous les départements</option>{departmentOptions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>}
-          {communeOptions.length > 0 && <label className="report-location-filter"><span>Commune</span><select value={commune} onChange={e => selectCommune(e.target.value)}><option value="">Toutes les communes</option>{communeOptions.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}
-          {filteredSchools.length > 1 && <label className="report-location-filter"><Building2/><span className="sr-only">Établissement</span><select value={schoolId} onChange={e => selectSchool(e.target.value)}>{filteredSchools.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+          {<label className="report-location-filter"><span>Département</span><select value={departmentId} onChange={e => selectDepartment(e.target.value)}><option value="">Choisir un département</option>{departmentOptions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>}
+          {departmentId && <label className="report-location-filter"><span>Commune</span><select value={commune} onChange={e => selectCommune(e.target.value)}><option value="">Choisir une commune</option>{communeOptions.map(name => <option key={name} value={name}>{name}</option>)}</select></label>}
+          {departmentId && commune && <label className="report-location-filter"><Building2/><span className="sr-only">Établissement</span><select value={schoolId} onChange={e => selectSchool(e.target.value)}><option value="">Choisir une école</option>{filteredSchools.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
           <span><BookOpen/> {year?.label ?? 'Aucune année active'}</span>
           <button onClick={() => void load()} disabled={loading}><RefreshCw/></button>
         </div>
