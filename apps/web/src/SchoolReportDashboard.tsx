@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   Activity, BookOpen, Building2, CheckCircle2, ClipboardList, GraduationCap,
-  History, LogOut, PackageCheck, RefreshCw, Truck, Users,
+  History, LogOut, PackageCheck, RefreshCw, ShieldCheck, Truck, Users,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './SchoolReportDashboard.css';
@@ -27,9 +27,10 @@ const operationLabels: Record<string, string> = {
   DELIVERY_REPRINT: 'Réimpression',
 };
 
-export default function SchoolReportDashboard({ memberships, onSignOut }: {
+export default function SchoolReportDashboard({ memberships, onSignOut, onBackToAdmin }: {
   memberships: Membership[];
   onSignOut: () => void;
+  onBackToAdmin?: () => void;
 }) {
   const [schools, setSchools] = useState<School[]>([]);
   const [communes, setCommunes] = useState<Commune[]>([]);
@@ -348,6 +349,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       <header className="report-topbar">
         <div><h1>Tableau de bord — Rapports scolaires</h1><p>Suivi de l’enrôlement et de la livraison · {school?.name ?? 'Établissement'}</p></div>
         <div className="report-context">
+          {onBackToAdmin && <button type="button" onClick={onBackToAdmin} title="Retourner à l’administration"><ShieldCheck/> Espace Admin</button>}
           <label><span>Département</span><select value={selectedDepartmentId} disabled={availableDepartments.length === 0} onChange={e => { const nextDepartmentId = e.target.value; const candidates = schools.filter(s => !nextDepartmentId || s.department_id === nextDepartmentId); const nextSchoolId = candidates[0]?.id ?? ''; setSelectedDepartmentId(nextDepartmentId); setSelectedCommune(''); setSelectedGroup(''); schoolIdRef.current = nextSchoolId; void load(true, nextSchoolId); }}><option value="">{availableDepartments.length ? 'Tous les départements' : 'Aucun établissement actif'}</option>{availableDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
           <label><span>Commune</span><select value={selectedCommune} onChange={e => { const nextCommune = e.target.value; const candidates = schools.filter(s => (!selectedDepartmentId || s.department_id === selectedDepartmentId) && s.commune_id === nextCommune); const nextSchoolId = candidates[0]?.id ?? ''; setSelectedCommune(nextCommune); setSelectedGroup(''); schoolIdRef.current = nextSchoolId; void load(true, nextSchoolId); }}><option value="">Toutes</option>{availableCommunes.map(commune => <option key={commune.id} value={commune.id}>{commune.name}</option>)}</select></label>
           {filteredSchools.length > 1 && <label><Building2/><select value={schoolId} onChange={e => { const nextSchoolId = e.target.value; const nextSchool = schools.find(s => s.id === nextSchoolId); schoolIdRef.current = nextSchoolId; setSchoolId(nextSchoolId); if (nextSchool) { setSelectedDepartmentId(nextSchool.department_id); setSelectedCommune(nextSchool.commune_id ?? ''); } setSelectedGroup(''); setEntryType('INITIAL'); setCapacity(''); setInitialEnrollment(''); setQuantity(''); setNote(''); setNotice(''); setError(''); void load(true, nextSchoolId); }}>{filteredSchools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
