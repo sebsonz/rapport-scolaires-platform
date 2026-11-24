@@ -74,6 +74,67 @@ COMMENT ON COLUMN public.delivery_slips.organization_id IS
 COMMENT ON COLUMN public.delivery_slips.organization_snapshot IS
   'Immutable issuer identity snapshot (name, logo, address and contacts) captured when the slip is created.';
 
+CREATE OR REPLACE FUNCTION public.capture_delivery_slip_organization_snapshot()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, pg_temp
+SET row_security = off
+AS $
+DECLARE
+  v_organization public.organizations;
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.organization_id IS DISTINCT FROM OLD.organization_id
+       OR NEW.organization_snapshot IS DISTINCT FROM OLD.organization_snapshot THEN
+      RAISE EXCEPTION 'L''organisation émettrice et son identité historique ne peuvent pas être modifiées après création du bordereau';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Authentification requise pour créer un bordereau';
+  END IF;
+
+  SELECT o.* INTO v_organization
+  FROM public.organization_memberships om
+  JOIN public.organizations o ON o.id = om.organization_id
+  WHERE om.user_id = auth.uid()
+    AND o.status = 'ACTIVE';
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Affectez ce compte à une organisation active avant de créer un bordereau';
+  END IF;
+
+  IF NEW.organization_id IS NOT NULL AND NEW.organization_id <> v_organization.id THEN
+    RAISE EXCEPTION 'Un utilisateur ne peut émettre un bordereau qu''au nom de son organisation';
+  END IF;
+
+  NEW.organization_id := v_organization.id;
+  NEW.organization_snapshot := jsonb_build_object(
+    'id', v_organization.id,
+    'code', v_organization.code,
+    'legal_name', v_organization.legal_name,
+    'short_name', v_organization.short_name,
+    'logo_path', v_organization.logo_path,
+    'address', v_organization.address,
+    'phone', v_organization.phone,
+    'email', v_organization.email,
+    'country', v_organization.country,
+    'tax_identifier', v_organization.tax_identifier,
+    'website', v_organization.website,
+    'captured_at', now()
+  );
+  RETURN NEW;
+END;
+$;
+
+DROP TRIGGER IF EXISTS delivery_slips_organization_snapshot_trg ON public.delivery_slips;
+CREATE TRIGGER delivery_slips_organization_snapshot_trg
+BEFORE INSERT OR UPDATE OF organization_id, organization_snapshot
+ON public.delivery_slips
+FOR EACH ROW EXECUTE FUNCTION public.capture_delivery_slip_organization_snapshot();
+
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.organization_memberships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.organization_membership_events ENABLE ROW LEVEL SECURITY;
