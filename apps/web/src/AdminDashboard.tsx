@@ -222,7 +222,7 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
           <div><span>PLATEFORME / ADMINISTRATION</span><h1>{labels[tab]}</h1></div>
           <div className="admin-top-actions"><button className="admin-secondary" onClick={() => setShowUserDashboard(true)}><LayoutDashboard size={15}/> Dashboard utilisateur</button><span className="admin-secure"><ShieldCheck size={15}/> Session sécurisée</span><button className="admin-icon-button" onClick={() => void load()} title="Actualiser"><RefreshCw size={16}/></button></div>
         </header>
-        <div className="admin-content">
+        <div className={`admin-content ${tab === 'supervision' ? 'admin-content-supervision' : ''}`}>
           {error && <div className="admin-alert error"><AlertCircle size={17}/>{error}<button onClick={() => setError('')}><X size={15}/></button></div>}
           {notice && <div className="admin-alert success"><CheckCircle2 size={17}/>{notice}<button onClick={() => setNotice('')}><X size={15}/></button></div>}
           {loading ? <div className="admin-loading"><RefreshCw className="spin"/> Chargement des données administratives…</div> : null}
@@ -248,7 +248,7 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
           </>}
 
           {!loading && tab === 'supervision' && <>
-            <div className="admin-welcome"><div><span>SUPERVISION OPÉRATIONNELLE</span><h2>{operational?.school_year?.label ?? 'Aucune année scolaire active'}</h2><p>Vue consolidée des établissements, groupes pédagogiques, enrôlements et livraisons enregistrés sur le terrain.</p></div><button className="admin-secondary" onClick={() => void load()}><RefreshCw size={15}/> Actualiser</button></div>
+            <div className="admin-welcome admin-supervision-hero"><div><span><Activity size={13}/> CENTRE DE PILOTAGE · ANNÉE SCOLAIRE</span><h2>{operational?.school_year?.label ?? 'Aucune année scolaire active'}</h2><p>Suivez la remontée des rapports, les enrôlements, les livraisons et les anomalies sur l’ensemble des départements.</p><div className="admin-supervision-hero-meta"><span><i/> Données consolidées</span><span>{operational?.departments.length ?? 0} départements</span><span>{operational?.schools.length ?? 0} établissements</span></div></div><button className="admin-supervision-refresh" onClick={() => void load()}><RefreshCw size={15}/> Actualiser les données</button></div>
             <section className="admin-supervision-filters">
               <div className="admin-supervision-filter-title"><div><b>Filtres de supervision</b><small>Affinez les résultats sans modifier les rapports enregistrés.</small></div><button className="admin-secondary small" onClick={() => { setSupervisionDepartment(''); setSupervisionSchool(''); setSupervisionSearch(''); setSupervisionAnomaliesOnly(false); }}>Réinitialiser</button></div>
               <div className="admin-supervision-filter-controls">
@@ -271,6 +271,19 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
               <Metric icon={<Activity/>} label="Corrections d’enrôlement" value={Number(operational?.totals.enrollment_corrections ?? 0).toLocaleString('fr-FR')} hint="Comptabilisées séparément"/>
               <Metric icon={<AlertCircle/>} label="Anomalies détectées" value={Number(operational?.totals.anomalies ?? 0).toLocaleString('fr-FR')} hint="Dépassements à examiner" emphasis={Number(operational?.totals.anomalies ?? 0)>0}/>
             </div>
+            <section className="admin-supervision-analytics">
+              <article className="admin-supervision-chart">
+                <div className="admin-supervision-chart-head"><div><span>PERFORMANCE TERRAIN</span><h3>Taux d’enrôlement par département</h3><p>Comparaison des taux calculés à partir des effectifs réels.</p></div><span className="admin-supervision-chart-tag">Enrôlement</span></div>
+                <div className="admin-supervision-bars">
+                  {supervisionDepartments.slice(0, 8).map(item => <div className="admin-supervision-bar-row" key={item.department_id}><div><b>{item.name}</b><span>{item.enrollment_rate == null ? '—' : `${item.enrollment_rate.toLocaleString('fr-FR')} %`}</span></div><div className="admin-supervision-bar-track"><i style={{ width: `${Math.max(0, Math.min(100, item.enrollment_rate ?? 0))}%` }}/></div></div>)}
+                  {supervisionDepartments.length === 0 && <div className="admin-empty">Aucune donnée à représenter pour les filtres sélectionnés.</div>}
+                </div>
+              </article>
+              <article className="admin-supervision-chart admin-supervision-distribution">
+                <div className="admin-supervision-chart-head"><div><span>VUE D’ENSEMBLE</span><h3>État de la livraison</h3><p>Répartition des enrôlés selon le statut de livraison.</p></div></div>
+                <div className="admin-supervision-donut-area"><div className="admin-supervision-donut" style={{ background: `conic-gradient(#38b982 0 ${(Number(operational?.totals.enrolled ?? 0) > 0 ? Math.min(100, Number(operational?.totals.delivered_unique ?? 0) / Number(operational?.totals.enrolled ?? 1) * 100) : 0)}%, #f2b84b 0 100%)` }}><div><b>{Number(operational?.totals.enrolled ?? 0) > 0 ? Math.round(Number(operational?.totals.delivered_unique ?? 0) / Number(operational?.totals.enrolled ?? 1) * 100) : 0}%</b><small>livrés</small></div></div><div className="admin-supervision-legend"><div><i className="delivered"/>Livrés uniques<strong>{Number(operational?.totals.delivered_unique ?? 0).toLocaleString('fr-FR')}</strong></div><div><i className="pending"/>Reste à livrer<strong>{Number(operational?.totals.delivery_remaining ?? 0).toLocaleString('fr-FR')}</strong></div><small>Les réimpressions sont comptabilisées séparément.</small></div></div>
+              </article>
+            </section>
             <section className="admin-panel"><div className="admin-panel-head"><div><h3>Situation par département</h3><p>Consolidation des données réelles de l’année scolaire sélectionnée.</p></div><span className="admin-count">{operational?.departments.length ?? 0} départements</span></div>
               <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Département</th><th>Écoles</th><th>Groupes</th><th>Effectif</th><th>Initial</th><th>Ratissage</th><th>Enrôlés</th><th>Taux enrôlement</th><th>Livraison initiale</th><th>Livraison ratissage</th><th>1ère remise après correction</th><th>Livrés uniques</th><th>Taux livraison</th><th>Anomalies</th></tr></thead><tbody>
                 {supervisionDepartments.map(item => <tr key={item.department_id}><td><b>{item.name}</b><small>{item.code}</small></td><td>{item.schools}</td><td>{item.groups}</td><td>{item.capacity.toLocaleString('fr-FR')}</td><td>{item.enrollment_initial.toLocaleString('fr-FR')}</td><td>{item.enrollment_ratissage.toLocaleString('fr-FR')}</td><td>{item.enrolled.toLocaleString('fr-FR')}</td><td>{item.enrollment_rate == null ? '—' : `${item.enrollment_rate.toLocaleString('fr-FR')} %`}</td><td>{item.delivery_initial.toLocaleString('fr-FR')}</td><td>{item.delivery_ratissage.toLocaleString('fr-FR')}</td><td>{item.delivery_correction.toLocaleString('fr-FR')}</td><td>{item.delivered_unique.toLocaleString('fr-FR')}</td><td>{item.delivery_rate == null ? '—' : `${item.delivery_rate.toLocaleString('fr-FR')} %`}</td><td>{item.anomalies > 0 ? <Status status="REJECTED"/> : <Status status="APPROVED"/>}</td></tr>)}
