@@ -234,6 +234,12 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
         <div className="delivery-slip-list">{slips.map(item => <button type="button" key={item.id} className={item.id === selectedSlipId ? 'selected' : ''} onClick={() => setSelectedSlipId(item.id)}><span><b>{item.slip_number}</b><small>{new Date(item.delivery_date).toLocaleDateString('fr-FR')} · {item.creator_full_name ?? 'Ancien bordereau'}</small></span><em className={'status '+item.status.toLowerCase()}>{statusLabels[item.status]}</em></button>)}{slips.length === 0 && <p className="delivery-empty">Aucun bordereau enregistré pour cet établissement.</p>}</div>
       </section>
     </div>
+    {selectedSlip && <section className="delivery-panel delivery-actions">
+      {selectedSlip.status === 'DRAFT' && <form className="delivery-add-line" onSubmit={addLine}><select value={groupId} onChange={event=>setGroupId(event.target.value)} required><option value="">Choisir un groupe pédagogique</option>{groups.map(group=><option key={group.id} value={group.id}>{promotionLabel(group.promotion_id)} · {group.group_code}</option>)}</select><input type="number" min="0" step="1" value={quantity} onChange={event=>setQuantity(event.target.value)} required placeholder="Quantité"/><button className="delivery-primary" disabled={busy || !canManageSelected}>Ajouter la ligne</button></form>}
+      {selectedSlip.status === 'DRAFT' && <button className="delivery-primary" onClick={()=>void transition('submit_delivery_slip')} disabled={busy || selectedLines.length===0}><Send size={15}/> Soumettre</button>}
+      {canValidate && <button className="delivery-primary validate" onClick={()=>void transition('validate_delivery_slip')} disabled={busy}><ShieldCheck size={15}/> Valider (administration)</button>}
+      <button className="delivery-secondary" onClick={printSlip}><Printer size={15}/> Imprimer / PDF</button>
+    </section>}
     {selectedSlip && <section className="delivery-panel delivery-document delivery-print-only" id="delivery-print">
       <div className="delivery-brandbar">
         <div className="delivery-brand"><div className="delivery-logo">{logoUrl ? <img src={logoUrl} alt="Logo de l’organisation"/> : <span>O</span>}</div><div><h1>{issuerName}</h1><p>{String(issuer.address ?? issuer.country ?? 'COTONOU - BÉNIN')}</p></div></div>
@@ -257,12 +263,6 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
         <section><h3>Établi par</h3><b className="delivery-person-name">{creatorName}</b><span>Signature</span><div className="delivery-sign-line"/></section>
         <section><h3>Visa de réception</h3><b>Nom et prénoms du réceptionnaire</b><div className="delivery-blank-line"/><b>Fonction</b><div className="delivery-blank-line"/><b>Date de réception</b><div className="delivery-blank-line"/><span>Signature</span><div className="delivery-sign-line"/></section>
         <section><h3>Cachet de l’établissement</h3><div className="delivery-stamp-box"/></section>
-      </div>
-      <div className="delivery-actions no-print">
-        {selectedSlip.status === 'DRAFT' && <form className="delivery-add-line" onSubmit={addLine}><select value={groupId} onChange={event=>setGroupId(event.target.value)} required><option value="">Choisir un groupe pédagogique</option>{groups.map(group=><option key={group.id} value={group.id}>{promotionLabel(group.promotion_id)} · {group.group_code}</option>)}</select><input type="number" min="0" step="1" value={quantity} onChange={event=>setQuantity(event.target.value)} required placeholder="Quantité"/><button className="delivery-primary" disabled={busy || !canManageSelected}>Ajouter la ligne</button></form>}
-        {selectedSlip.status === 'DRAFT' && <button className="delivery-primary" onClick={()=>void transition('submit_delivery_slip')} disabled={busy || selectedLines.length===0}><Send size={15}/> Soumettre</button>}
-        {canValidate && <button className="delivery-primary validate" onClick={()=>void transition('validate_delivery_slip')} disabled={busy}><ShieldCheck size={15}/> Valider (administration)</button>}
-        <button className="delivery-secondary" onClick={printSlip}><Printer size={15}/> Imprimer / PDF</button>
       </div>
     </section>}
   </div>;
