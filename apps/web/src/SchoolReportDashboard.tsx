@@ -90,10 +90,12 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     setYear(activeYear);
     setPromotions((promotionResult.data ?? []) as Promotion[]);
     const preferredSchoolId = requestedSchoolId ?? schoolIdRef.current;
-    const currentSchool = keepSchool && visibleSchools.some(s => s.id === preferredSchoolId)
-      ? preferredSchoolId : (visibleSchools[0]?.id ?? '');
+    const currentSchool = requestedSchoolId !== undefined
+      ? (visibleSchools.some(s => s.id === requestedSchoolId) ? requestedSchoolId : '')
+      : keepSchool && visibleSchools.some(s => s.id === preferredSchoolId)
+        ? preferredSchoolId : (visibleSchools[0]?.id ?? '');
     const currentDepartmentId = visibleSchools.find(s => s.id === currentSchool)?.department_id ?? visibleDepartments[0]?.id ?? '';
-    if (!departmentId || !visibleDepartments.some(d => d.id === departmentId)) setDepartmentId(currentDepartmentId);
+    setDepartmentId(currentDepartmentId);
     if (currentSchool && !visibleSchools.some(s => s.id === preferredSchoolId)) setCommune('');
     schoolIdRef.current = currentSchool;
     setSchoolId(currentSchool);
@@ -134,7 +136,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     } else { setOperations([]); setDeliveryInitialCorrections([]); }
     setSelectedGroup(current => nextGroups.some(g => g.id === current) ? current : (nextGroups[0]?.id ?? ''));
     setLoading(false);
-  }, [departmentIds, isCentralAdmin, departmentId]);
+  }, [departmentIds, isCentralAdmin]);
 
   useEffect(() => { void load(false); }, [load]);
 
