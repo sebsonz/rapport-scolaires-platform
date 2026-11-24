@@ -9,7 +9,8 @@ import SchoolPedagogicalClasses from './SchoolPedagogicalClasses';
 
 type Membership = { department_id: string | null; role: 'CENTRAL_ADMIN' | 'CATEGORY_1' | 'CATEGORY_2' };
 type Department = { id: string; code: string; name: string };
-type School = { id: string; department_id: string; code: string; name: string; commune: string | null };
+type Commune = { id: string; department_id: string; code: string; name: string };
+type School = { id: string; department_id: string; code: string; name: string; commune_id: string | null };
 type Year = { id: string; code: string; label: string };
 type Promotion = { id: string; code: string; label: string; cycle: string };
 type Group = { id: string; school_id: string; school_year_id: string; promotion_id: string; group_code: string; is_active: boolean };
@@ -31,6 +32,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   onSignOut: () => void;
 }) {
   const [schools, setSchools] = useState<School[]>([]);
+  const [communes, setCommunes] = useState<Commune[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
   const [selectedCommune, setSelectedCommune] = useState('');
@@ -73,9 +75,10 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     const requestId = ++loadRequestRef.current;
     setLoading(true); setError('');
     const [schoolResult, yearResult, promotionResult] = await Promise.all([
-      supabase.from('schools').select('id,department_id,code,name,commune').eq('is_active', true).order('name'),
+      supabase.from('schools').select('id,department_id,code,name,commune_id').eq('is_active', true).order('name'),
       supabase.from('school_years').select('id,code,label').eq('is_active', true).order('starts_on', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('promotions').select('id,code,label,cycle').eq('is_active', true).order('display_order').order('label'),
+      supabase.from('communes').select('id,department_id,code,name').eq('is_active', true).order('name'),
     ]);
     const departmentQuery = supabase.from('departments').select('id,code,name').order('name');
     const departmentResult = isCentralAdmin
@@ -84,7 +87,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
         ? await departmentQuery.in('id', departmentIds)
         : { data: [], error: null };
     if (requestId !== loadRequestRef.current) return;
-    const firstError = schoolResult.error ?? yearResult.error ?? promotionResult.error;
+    const firstError = schoolResult.error ?? yearResult.error ?? promotionResult.error ?? communeResult.error;
     if (firstError) { setError(firstError.message); setLoading(false); return; }
     if (departmentResult.error) {
       setError(`Impossible de charger les départements : ${departmentResult.error.message}`);
@@ -93,6 +96,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     const activeYear = yearResult.data as Year | null;
     if (requestId !== loadRequestRef.current) return;
     setSchools(visibleSchools);
+    setCommunes((communeResult.data ?? []) as Commune[]);
     setDepartments((departmentResult.data ?? []) as Department[]);
     setYear(activeYear);
     setPromotions((promotionResult.data ?? []) as Promotion[]);
@@ -145,12 +149,13 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   const school = schools.find(item => item.id === schoolId);
   const filteredSchools = useMemo(() => schools.filter(item =>
     (!selectedDepartmentId || item.department_id === selectedDepartmentId)
-    && (!selectedCommune || (item.commune ?? '') === selectedCommune)
+    && (!selectedCommune || item.commune_id === selectedCommune)
   ), [schools, selectedDepartmentId, selectedCommune]);
-  const availableCommunes = useMemo(() => [...new Set(schools
-    .filter(item => !selectedDepartmentId || item.department_id === selectedDepartmentId)
-    .map(item => item.commune?.trim() ?? '').filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr')),
-  [schools, selectedDepartmentId]);
+  const availableCommunes = useMemo(() => communes.filter(commune =>
+    (!selectedDepartmentId || commune.department_id === selectedDepartmentId)
+    && schools.some(school => school.department_id === commune.department_id && school.commune_id === commune.id)
+  ).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
+  [communes, schools, selectedDepartmentId]);
   const reportByGroup = useMemo(() => new Map(reports.map(r => [r.pedagogical_group_id, r])), [reports]);
   const promotionById = useMemo(() => new Map(promotions.map(p => [p.id, p])), [promotions]);
   const latestDeliveryCorrectionByReport = useMemo(() => {
@@ -331,8 +336,8 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
         <div><h1>Tableau de bord — Rapports scolaires</h1><p>Suivi de l’enrôlement et de la livraison · {school?.name ?? 'Établissement'}</p></div>
         <div className="report-context">
           <label><span>Département</span><select value={selectedDepartmentId} disabled={departments.length === 0} onChange={e => { const nextDepartmentId = e.target.value; const candidates = schools.filter(s => !nextDepartmentId || s.department_id === nextDepartmentId); const nextSchoolId = candidates[0]?.id ?? ''; setSelectedDepartmentId(nextDepartmentId); setSelectedCommune(''); setSelectedGroup(''); schoolIdRef.current = nextSchoolId; void load(true, nextSchoolId); }}><option value="">{isCentralAdmin ? 'Tous les départements' : departments.length ? 'Choisir un département' : 'Aucun département affecté'}</option>{departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
-          <label><span>Commune</span><select value={selectedCommune} onChange={e => { const nextCommune = e.target.value; const candidates = schools.filter(s => (!selectedDepartmentId || s.department_id === selectedDepartmentId) && (s.commune ?? '') === nextCommune); const nextSchoolId = candidates[0]?.id ?? ''; setSelectedCommune(nextCommune); setSelectedGroup(''); schoolIdRef.current = nextSchoolId; void load(true, nextSchoolId); }}><option value="">Toutes</option>{availableCommunes.map(commune => <option key={commune} value={commune}>{commune}</option>)}</select></label>
-          {filteredSchools.length > 1 && <label><Building2/><select value={schoolId} onChange={e => { const nextSchoolId = e.target.value; const nextSchool = schools.find(s => s.id === nextSchoolId); schoolIdRef.current = nextSchoolId; setSchoolId(nextSchoolId); if (nextSchool) { setSelectedDepartmentId(nextSchool.department_id); setSelectedCommune(nextSchool.commune ?? ''); } setSelectedGroup(''); setEntryType('INITIAL'); setCapacity(''); setInitialEnrollment(''); setQuantity(''); setNote(''); setNotice(''); setError(''); void load(true, nextSchoolId); }}>{filteredSchools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
+          <label><span>Commune</span><select value={selectedCommune} onChange={e => { const nextCommune = e.target.value; const candidates = schools.filter(s => (!selectedDepartmentId || s.department_id === selectedDepartmentId) && s.commune_id === nextCommune); const nextSchoolId = candidates[0]?.id ?? ''; setSelectedCommune(nextCommune); setSelectedGroup(''); schoolIdRef.current = nextSchoolId; void load(true, nextSchoolId); }}><option value="">Toutes</option>{availableCommunes.map(commune => <option key={commune.id} value={commune.id}>{commune.name}</option>)}</select></label>
+          {filteredSchools.length > 1 && <label><Building2/><select value={schoolId} onChange={e => { const nextSchoolId = e.target.value; const nextSchool = schools.find(s => s.id === nextSchoolId); schoolIdRef.current = nextSchoolId; setSchoolId(nextSchoolId); if (nextSchool) { setSelectedDepartmentId(nextSchool.department_id); setSelectedCommune(nextSchool.commune_id ?? ''); } setSelectedGroup(''); setEntryType('INITIAL'); setCapacity(''); setInitialEnrollment(''); setQuantity(''); setNote(''); setNotice(''); setError(''); void load(true, nextSchoolId); }}>{filteredSchools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
           <span><BookOpen/> {year?.label ?? 'Aucune année active'}</span>
           <button onClick={() => void load()} disabled={loading}><RefreshCw/></button>
         </div>
