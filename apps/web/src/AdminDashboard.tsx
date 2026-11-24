@@ -284,7 +284,7 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
             {departments.length === 0 && <Empty text="Aucun département créé. Ajoutez le premier département."/>}
           </section>}
 
-          {!loading && tab === 'organizations' && <AdminOrganizations profiles={profiles} approvedUserIds={requests.filter(item => item.status === 'APPROVED').map(item => item.user_id)}/>}
+          {!loading && tab === 'organizations' && <AdminOrganizations profiles={profiles} approvedUserIds={requests.filter(item => item.status === 'APPROVED').map(item => item.user_id)} auditEvents={audit}/>}
           {!loading && tab === 'schools' && <AdminSchools departments={departments}/>}
           {!loading && tab === 'classes' && <AdminClasses/>}
 
