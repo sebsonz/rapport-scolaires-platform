@@ -364,7 +364,15 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       {notice && <div className="report-alert success"><CheckCircle2/> {notice}</div>}
       {loading ? <div className="report-loading"><RefreshCw className="spin"/> Chargement des données de l’établissement…</div> : <>
         {!year && <div className="report-alert error">Aucune année scolaire active n’a été définie par l’administration centrale.</div>}
-        {!school && <div className="report-empty">{schools.length ? 'Aucun établissement ne correspond aux filtres sélectionnés.' : 'Aucun établissement autorisé n’est associé à ce compte.'}</div>}
+        {!school && <div className="report-empty">{!departmentId
+          ? 'Choisissez un département pour afficher les communes et les établissements autorisés.'
+          : !commune
+            ? (communeOptions.length
+              ? 'Choisissez une commune pour afficher les établissements correspondants.'
+              : 'Aucune commune renseignée pour les établissements de ce département. Vérifiez les données des établissements.')
+            : filteredSchools.length
+              ? 'Choisissez un établissement pour afficher son tableau de bord.'
+              : 'Aucun établissement ne correspond aux filtres sélectionnés.'}</div>}
         {school && <>
           <section className="report-school-banner"><div className="report-school-icon"><Building2/></div><div><h2>{school.name}</h2><p>{school.code} · {year?.label}</p></div><div className="report-category cat-one"><Users/><b>Catégorie 1</b><small>Enrôlement · Ratissage · Correction</small></div><div className="report-category cat-two"><Truck/><b>Catégorie 2</b><small>Livraison · Réimpression</small></div><div className="report-category cat-common"><Users/><b>Tableau de bord commun</b><small>Données partagées et actualisées</small></div></section>
           <SchoolPedagogicalClasses schoolId={school.id} schoolName={school.name} yearId={year?.id ?? ''} yearLabel={year?.label ?? ''} promotions={promotions} groups={groups} canConfigure={canEnrollment} onSaved={() => void load()}/>
