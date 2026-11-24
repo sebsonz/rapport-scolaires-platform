@@ -11,7 +11,7 @@ type PedagogicalGroup = { id: string; school_id: string; school_year_id: string;
 type Slip = {
   id: string; school_id: string; school_year_id: string; slip_number: string; delivery_date: string;
   status: 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'CANCELLED'; observations: string | null;
-  responsible_agent: string | null; created_by: string; creator_role: string | null;
+  responsible_agent: string | null; created_by: string; creator_role: string | null; creator_full_name: string | null;
   validated_by: string | null; validated_at: string | null; organization_snapshot: Record<string, unknown> | null;
 };
 type Line = { id: string; delivery_slip_id: string; promotion_id: string; group_code: string; quantity_delivered: number };
@@ -19,6 +19,44 @@ type Line = { id: string; delivery_slip_id: string; promotion_id: string; group_
 const statusLabels: Record<Slip['status'], string> = {
   DRAFT: 'Brouillon', SUBMITTED: 'Soumis', VALIDATED: 'Validé', CANCELLED: 'Annulé',
 };
+
+function numberToFrench(value: number): string {
+  const units = ['zéro','un','deux','trois','quatre','cinq','six','sept','huit','neuf','dix','onze','douze','treize','quatorze','quinze','seize'];
+  const underHundred = (n: number): string => {
+    if (n <= 16) return units[n];
+    if (n < 20) return 'dix-' + units[n - 10];
+    if (n < 70) {
+      const tens = Math.floor(n / 10), rest = n % 10;
+      const names = ['','','vingt','trente','quarante','cinquante','soixante'];
+      if (!rest) return names[tens];
+      if (rest === 1) return names[tens] + ' et un';
+      return names[tens] + '-' + units[rest];
+    }
+    if (n < 80) return n === 71 ? 'soixante et onze' : 'soixante-' + underHundred(n - 60);
+    if (n < 100) return n === 80 ? 'quatre-vingts' : 'quatre-vingt-' + underHundred(n - 80);
+    return '';
+  };
+  const underThousand = (n: number): string => {
+    if (n < 100) return underHundred(n);
+    const h = Math.floor(n / 100), rest = n % 100;
+    const prefix = h === 1 ? 'cent' : units[h] + ' cent';
+    return prefix + (rest ? ' ' + underHundred(rest) : h > 1 ? 's' : '');
+  };
+  if (!Number.isFinite(value) || value < 0 || value > 999999) return String(value);
+  if (value < 1000) return underThousand(value);
+  const thousands = Math.floor(value / 1000), rest = value % 1000;
+  const prefix = thousands === 1 ? 'mille' : underThousand(thousands) + ' mille';
+  return (prefix + (rest ? ' ' + underThousand(rest) : '')).toUpperCase();
+}
+
+function quantityInWords(value: number) {
+  return numberToFrench(value).toLocaleUpperCase('fr-FR');
+}
+
+function publicLogo(path: unknown) {
+  if (typeof path !== 'string' || !path || !supabase) return '';
+  return supabase.storage.from('organization-logos').getPublicUrl(path).data.publicUrl;
+}
 
 export default function DeliverySlips({ memberships }: { memberships: Membership[] }) {
   const isAdmin = memberships.some(item => item.role === 'CENTRAL_ADMIN');
@@ -43,12 +81,15 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  useEffect(() => { void supabase?.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? '')); }, []);
+  useEffect(() => {
+    void supabase?.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? ''));
+  }, []);
 
   const selectedSchool = schools.find(item => item.id === schoolId);
   const availableRoles = useMemo(() => {
     if (isAdmin) return ['CENTRAL_ADMIN'] as const;
-    return [...new Set(memberships.filter(item => item.department_id === selectedSchool?.department_id).map(item => item.role).filter(role => role === 'CATEGORY_1' || role === 'CATEGORY_2'))] as Array<'CATEGORY_1' | 'CATEGORY_2'>;
+    return [...new Set(memberships.filter(item => item.department_id === selectedSchool?.department_id)
+      .map(item => item.role).filter(role => role === 'CATEGORY_1' || role === 'CATEGORY_2'))] as Array<'CATEGORY_1' | 'CATEGORY_2'>;
   }, [isAdmin, memberships, selectedSchool?.department_id]);
 
   const load = useCallback(async () => {
@@ -72,7 +113,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
     const [groupResult, slipResult] = await Promise.all([
       supabase.from('pedagogical_groups').select('id,school_id,school_year_id,promotion_id,group_code')
         .eq('school_id', nextSchoolId).eq('school_year_id', nextYear.id).order('created_at'),
-      supabase.from('delivery_slips').select('id,school_id,school_year_id,slip_number,delivery_date,status,observations,responsible_agent,created_by,creator_role,validated_by,validated_at,organization_snapshot')
+      supabase.from('delivery_slips').select('id,school_id,school_year_id,slip_number,delivery_date,status,observations,responsible_agent,created_by,creator_role,creator_full_name,validated_by,validated_at,organization_snapshot')
         .eq('school_id', nextSchoolId).eq('school_year_id', nextYear.id).order('created_at', { ascending: false }),
     ]);
     if (groupResult.error || slipResult.error) {
@@ -106,7 +147,20 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
   const selectedLines = lines.filter(item => item.delivery_slip_id === selectedSlipId);
   const canManageSelected = Boolean(selectedSlip && (selectedSlip.created_by === currentUserId || isAdmin));
   const canValidate = isAdmin && selectedSlip?.creator_role === 'CATEGORY_2' && selectedSlip.status === 'SUBMITTED';
-  const promotionLabel = (id: string) => promotions.find(item => item.id === id)?.label ?? promotions.find(item => item.id === id)?.code ?? 'Promotion';
+  const promotionLabel = (id: string) => promotions.find(item => item.id === id)?.label ?? promotions.find(item => item.id === id)?.code ?? '—';
+  const groupedLines = useMemo(() => {
+    const map = new Map<string, { label: string; lines: Line[]; total: number }>();
+    selectedLines.forEach(line => {
+      const group = map.get(line.promotion_id) ?? { label: promotionLabel(line.promotion_id), lines: [], total: 0 };
+      group.lines.push(line); group.total += line.quantity_delivered; map.set(line.promotion_id, group);
+    });
+    return [...map.entries()].map(([id, value]) => ({ id, ...value }));
+  }, [selectedLines, promotions]);
+  const total = selectedLines.reduce((sum, line) => sum + line.quantity_delivered, 0);
+  const issuer = selectedSlip?.organization_snapshot ?? {};
+  const logoUrl = publicLogo(issuer.logo_path);
+  const issuerName = String(issuer.legal_name ?? issuer.short_name ?? 'OMICROME');
+  const creatorName = selectedSlip?.creator_full_name ?? '—';
 
   async function createSlip(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -137,8 +191,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
     });
     setBusy(false);
     if (rpcError) { setError(rpcError.message); return; }
-    setQuantity(''); setNotice('Ligne ajoutée au bordereau.');
-    await load();
+    setQuantity(''); setNotice('Ligne ajoutée au bordereau.'); await load();
   }
 
   async function transition(action: 'submit_delivery_slip' | 'validate_delivery_slip') {
@@ -147,8 +200,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
     const { error: rpcError } = await supabase.rpc(action, { p_delivery_slip_id: selectedSlipId });
     setBusy(false);
     if (rpcError) { setError(rpcError.message); return; }
-    setNotice(action === 'validate_delivery_slip' ? 'Bordereau validé.' : 'Bordereau soumis.');
-    await load();
+    setNotice(action === 'validate_delivery_slip' ? 'Bordereau validé.' : 'Bordereau soumis.'); await load();
   }
 
   const printSlip = () => window.print();
@@ -164,7 +216,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
           <label>Établissement<select required value={schoolId} onChange={event => setSchoolId(event.target.value)}><option value="">Choisir un établissement</option>{schools.map(item => <option key={item.id} value={item.id}>{item.name} · {item.code}</option>)}</select></label>
           <label>Année scolaire<input value={year?.label ?? 'Aucune année active'} readOnly/></label>
           <label>Rôle émetteur<select value={creatorRole} onChange={event => setCreatorRole(event.target.value as typeof creatorRole)} disabled={availableRoles.length <= 1}><option value="CENTRAL_ADMIN">Administration centrale</option><option value="CATEGORY_1">Catégorie 1</option><option value="CATEGORY_2">Catégorie 2</option></select></label>
-          <label>Numéro du bordereau<input value={number} onChange={event => setNumber(event.target.value)} required maxLength={60} placeholder="Ex. BL-2026-001"/></label>
+          <label>Numéro du bordereau<input value={number} onChange={event => setNumber(event.target.value)} required maxLength={60} placeholder="Ex. BOR-2026-001"/></label>
           <label>Date de livraison<input type="date" value={date} onChange={event => setDate(event.target.value)} required/></label>
           <label>Agent responsable<input value={agent} onChange={event => setAgent(event.target.value)} maxLength={160} placeholder="Nom de l’agent"/></label>
           <label className="wide">Observations<textarea value={observations} onChange={event => setObservations(event.target.value)} rows={2}/></label>
@@ -174,17 +226,35 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
       <section className="delivery-panel">
         <h3>Historique des bordereaux <span>{slips.length}</span></h3>
         <label className="delivery-school-filter">Établissement<select value={schoolId} onChange={event => { setSchoolId(event.target.value); setSelectedSlipId(''); }}><option value="">Choisir</option>{schools.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <div className="delivery-slip-list">{slips.map(item => <button type="button" key={item.id} className={item.id === selectedSlipId ? 'selected' : ''} onClick={() => setSelectedSlipId(item.id)}><span><b>{item.slip_number}</b><small>{new Date(item.delivery_date).toLocaleDateString('fr-FR')} · {item.creator_role ?? 'Ancien bordereau'}</small></span><em className={'status '+item.status.toLowerCase()}>{statusLabels[item.status]}</em></button>)}{slips.length === 0 && <p className="delivery-empty">Aucun bordereau pour cet établissement et cette année.</p>}</div>
+        <div className="delivery-slip-list">{slips.map(item => <button type="button" key={item.id} className={item.id === selectedSlipId ? 'selected' : ''} onClick={() => setSelectedSlipId(item.id)}><span><b>{item.slip_number}</b><small>{new Date(item.delivery_date).toLocaleDateString('fr-FR')} · {item.creator_full_name ?? 'Ancien bordereau'}</small></span><em className={'status '+item.status.toLowerCase()}>{statusLabels[item.status]}</em></button>)}{slips.length === 0 && <p className="delivery-empty">Aucun bordereau pour cet établissement et cette année.</p>}</div>
       </section>
     </div>
     {selectedSlip && <section className="delivery-panel delivery-document" id="delivery-print">
-      <div className="delivery-document-head"><div><span className="delivery-eyebrow">BORDEREAU DE LIVRAISON</span><h2>{String(selectedSlip.organization_snapshot?.legal_name ?? selectedSlip.organization_snapshot?.short_name ?? 'Émetteur')}</h2><p>{String(selectedSlip.organization_snapshot?.address ?? '')}</p></div><div className="delivery-number"><b>{selectedSlip.slip_number}</b><span>{new Date(selectedSlip.delivery_date).toLocaleDateString('fr-FR')}</span></div></div>
-      <div className="delivery-document-meta"><span>Établissement : <b>{selectedSchool?.name ?? '—'}</b></span><span>Année : <b>{year?.label ?? '—'}</b></span><span>Agent : <b>{selectedSlip.responsible_agent ?? '—'}</b></span><span>Statut : <b>{statusLabels[selectedSlip.status]}</b></span></div>
-      <div className="delivery-lines-wrap"><table><thead><tr><th>Promotion</th><th>Groupe</th><th>Quantité livrée</th></tr></thead><tbody>{selectedLines.map(line=><tr key={line.id}><td>{promotionLabel(line.promotion_id)}</td><td>{line.group_code}</td><td>{line.quantity_delivered.toLocaleString('fr-FR')}</td></tr>)}</tbody><tfoot><tr><th colSpan={2}>Total</th><th>{selectedLines.reduce((sum,line)=>sum+line.quantity_delivered,0).toLocaleString('fr-FR')}</th></tr></tfoot></table>{selectedLines.length===0&&<p className="delivery-empty">Ajoutez au moins une ligne pour compléter le bordereau.</p>}</div>
+      <div className="delivery-brandbar">
+        <div className="delivery-brand"><div className="delivery-logo">{logoUrl ? <img src={logoUrl} alt="Logo de l’organisation"/> : <span>O</span>}</div><div><h1>{issuerName}</h1><p>{String(issuer.address ?? issuer.country ?? 'COTONOU - BÉNIN')}</p></div></div>
+        <div className="delivery-platform-brand"><b>Rapports Scolaires 2026 – 2027</b><span>Gestion et suivi des cartes scolaires</span></div>
+      </div>
+      <div className="delivery-title-ribbon"><span>BORDEREAU DE LIVRAISON</span></div>
+      <div className="delivery-document-meta">
+        <div><span>Établissement :</span><b>{selectedSchool?.name ?? '—'}</b><span>Agent responsable :</span><b>{selectedSlip.responsible_agent ?? '—'}</b><span>Année scolaire :</span><b>{year?.label ?? '—'}</b></div>
+        <div><span>N° Bordereau :</span><b className="delivery-number-pill">{selectedSlip.slip_number}</b><span>Date :</span><b>{new Date(selectedSlip.delivery_date).toLocaleDateString('fr-FR')}</b><span>Statut :</span><b>{statusLabels[selectedSlip.status]}</b></div>
+      </div>
+      <div className="delivery-lines-wrap"><table className="delivery-print-table"><thead><tr><th>N°</th><th>Groupes pédagogiques</th><th>Quantité livrée</th></tr></thead>
+        {groupedLines.map(group => <tbody key={group.id}>
+          {group.lines.map((line, index) => <tr key={line.id}><td>{index + 1}</td><td>{line.group_code}</td><td>{line.quantity_delivered.toLocaleString('fr-FR')}</td></tr>)}
+          <tr className="delivery-promotion-total"><td colSpan={2}>Total par promotion — {group.label}</td><td>{group.total.toLocaleString('fr-FR')}</td></tr>
+        </tbody>)}
+        <tfoot><tr><th colSpan={2}>TOTAL GÉNÉRAL</th><th>{total.toLocaleString('fr-FR')}</th></tr></tfoot>
+      </table>{selectedLines.length === 0 && <p className="delivery-empty">Ajoutez au moins une ligne pour compléter le bordereau.</p>}</div>
+      <div className="delivery-amount-words"><span>Arrête le présent Bordereau de Livraison à la quantité de</span><strong>{quantityInWords(total)} ({total.toLocaleString('fr-FR')}) cartes.</strong></div>
       {selectedSlip.observations && <p className="delivery-observations"><b>Observations :</b> {selectedSlip.observations}</p>}
-      <div className="delivery-signatures"><div>Établi par<br/><b>{selectedSlip.creator_role === 'CATEGORY_1' ? 'Catégorie 1' : selectedSlip.creator_role === 'CATEGORY_2' ? 'Catégorie 2' : 'Administration centrale'}</b></div><div>Visa / validation<br/><b>{selectedSlip.validated_at ? new Date(selectedSlip.validated_at).toLocaleString('fr-FR') : selectedSlip.creator_role === 'CATEGORY_2' ? 'En attente de validation administrative' : 'Non requise'}</b></div></div>
+      <div className="delivery-signatures">
+        <section><h3>Établi par</h3><b className="delivery-person-name">{creatorName}</b><span>Signature</span><div className="delivery-sign-line"/></section>
+        <section><h3>Visa de réception</h3><b>Nom et prénoms du réceptionnaire</b><div className="delivery-blank-line"/><b>Fonction</b><div className="delivery-blank-line"/><b>Date de réception</b><div className="delivery-blank-line"/><span>Signature</span><div className="delivery-sign-line"/></section>
+        <section><h3>Cachet de l’établissement</h3><div className="delivery-stamp-box"/></section>
+      </div>
       <div className="delivery-actions no-print">
-        {selectedSlip.status === 'DRAFT' && <form className="delivery-add-line" onSubmit={addLine}><select value={groupId} onChange={event=>setGroupId(event.target.value)} required><option value="">Choisir une classe / groupe</option>{groups.map(group=><option key={group.id} value={group.id}>{promotionLabel(group.promotion_id)} · {group.group_code}</option>)}</select><input type="number" min="0" step="1" value={quantity} onChange={event=>setQuantity(event.target.value)} required placeholder="Quantité"/><button className="delivery-primary" disabled={busy || !canManageSelected}>Ajouter la ligne</button></form>}
+        {selectedSlip.status === 'DRAFT' && <form className="delivery-add-line" onSubmit={addLine}><select value={groupId} onChange={event=>setGroupId(event.target.value)} required><option value="">Choisir un groupe pédagogique</option>{groups.map(group=><option key={group.id} value={group.id}>{promotionLabel(group.promotion_id)} · {group.group_code}</option>)}</select><input type="number" min="0" step="1" value={quantity} onChange={event=>setQuantity(event.target.value)} required placeholder="Quantité"/><button className="delivery-primary" disabled={busy || !canManageSelected}>Ajouter la ligne</button></form>}
         {selectedSlip.status === 'DRAFT' && <button className="delivery-primary" onClick={()=>void transition('submit_delivery_slip')} disabled={busy || selectedLines.length===0}><Send size={15}/> Soumettre</button>}
         {canValidate && <button className="delivery-primary validate" onClick={()=>void transition('validate_delivery_slip')} disabled={busy}><ShieldCheck size={15}/> Valider (administration)</button>}
         <button className="delivery-secondary" onClick={printSlip}><Printer size={15}/> Imprimer / PDF</button>
