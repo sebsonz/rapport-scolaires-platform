@@ -3,3 +3,8 @@
 .report-initial-status{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid #dcebe1;border-radius:8px;background:#f4fbf6;color:#17653b;font-size:11px}
 .report-edit-button{flex:none;border:1px solid #b9d8c3;border-radius:7px;background:#fff;color:#17653b;padding:7px 12px;font-size:11px;font-weight:750;cursor:pointer}
 .report-edit-button:hover{background:#eaf8ef}
+
+.report-entry-delivery{border-color:#d9c9f4;background:linear-gradient(180deg,#fcfaff 0%,#fff 100%)}
+.report-entry-delivery h3{color:#6524b7}
+.report-entry-delivery h3 svg{color:#7b3fc3}
+.report-entry-intro{margin:-3px 0 3px;padding:10px 12px;border-radius:8px;background:#f3ebff;color:#5b3b83;font-size:11px;line-height:1.55}
