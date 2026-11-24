@@ -62,7 +62,7 @@ export default function SchoolPedagogicalClasses({
         <small>{activePromotionIds.length} classe(s) sélectionnée(s)</small>
       </div>
       <button type="button" className="gp-open" onClick={() => { setExpanded(value => !value); setError(''); setNotice(''); }}>
-        {expanded ? 'Fermer' : 'Gérer les GP'} {expanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+        {expanded ? 'Masquer la liste' : 'Afficher la liste'} {expanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
       </button>
     </div>
 
