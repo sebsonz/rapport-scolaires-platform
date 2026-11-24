@@ -16,7 +16,10 @@ type Membership = { id: string; user_id: string; department_id: string | null; r
 type AccessRequest = { id: string; user_id: string; status: RequestStatus; requested_at: string; reviewed_at: string | null; review_note: string | null };
 type AuditEvent = { id: number; actor_user_id: string | null; department_id: string | null; event_type: string; entity_table: string; record_id: string | null; details: Record<string, unknown>; created_at: string };
 type Assignment = { department_id: string; role: Role };
-type Tab = 'overview' | 'requests' | 'users' | 'departments' | 'schools' | 'classes' | 'audit';
+type SupervisionDepartment = { department_id:string; code:string; name:string; schools:number; groups:number; reports:number; capacity:number; enrolled:number; enrollment_corrections:number; delivered_unique:number; reprints:number; enrollment_rate:number|null; delivery_rate:number|null; anomalies:number };
+type SupervisionSchool = { school_id:string; department_id:string; code:string; name:string; groups:number; reports:number; capacity:number; enrolled:number; delivered_unique:number; reprints:number; enrollment_remaining:number; delivery_remaining:number };
+type OperationalSupervision = { school_year:{id:string;code:string;label:string;is_active:boolean}|null; totals:Record<string,number>; departments:SupervisionDepartment[]; schools:SupervisionSchool[] };
+type Tab = 'overview' | 'supervision' | 'requests' | 'users' | 'departments' | 'schools' | 'classes' | 'audit';
 
 const labels: Record<Tab, string> = {
   overview: 'Vue générale',
@@ -26,6 +29,7 @@ const labels: Record<Tab, string> = {
   schools: 'Écoles',
   classes: 'Classes',
   audit: 'Journal d’audit',
+  supervision: 'Supervision des activités',
 };
 
 export default function AdminDashboard({ profile, onSignOut }: { profile: UserProfile | null; onSignOut: () => void }) {
@@ -36,6 +40,7 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
   const [overview, setOverview] = useState<Record<string, unknown>>({});
+  const [operational, setOperational] = useState<OperationalSupervision | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -55,17 +60,19 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
     if (!supabase) return;
     setLoading(true);
     setError('');
-    const [overviewResult, deptResult, profileResult, requestResult, membershipResult, auditResult] = await Promise.all([
+    const [overviewResult, deptResult, profileResult, requestResult, membershipResult, auditResult, operationalResult] = await Promise.all([
       supabase.rpc('admin_get_overview'),
       supabase.from('departments').select('id,code,name,created_at').order('name'),
       supabase.from('user_profiles').select('user_id,full_name,email').order('full_name'),
       supabase.from('access_requests').select('id,user_id,status,requested_at,reviewed_at,review_note').order('requested_at', { ascending: false }),
       supabase.from('school_memberships').select('id,user_id,department_id,role'),
       supabase.from('audit_events').select('id,actor_user_id,department_id,event_type,entity_table,record_id,details,created_at').order('created_at', { ascending: false }).limit(100),
+      supabase.rpc('admin_get_operational_supervision'),
     ]);
-    const firstError = overviewResult.error ?? deptResult.error ?? profileResult.error ?? requestResult.error ?? membershipResult.error ?? auditResult.error;
+    const firstError = overviewResult.error ?? deptResult.error ?? profileResult.error ?? requestResult.error ?? membershipResult.error ?? auditResult.error ?? operationalResult.error;
     if (firstError) setError(firstError.message);
     setOverview((overviewResult.data ?? {}) as Record<string, unknown>);
+    setOperational((operationalResult.data ?? null) as OperationalSupervision | null);
     setDepartments((deptResult.data ?? []) as Department[]);
     setProfiles((profileResult.data ?? []) as UserProfile[]);
     setRequests((requestResult.data ?? []) as AccessRequest[]);
@@ -163,6 +170,7 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
         <nav className="admin-nav">
           {([
             ['overview', LayoutDashboard, 'Vue générale'],
+            ['supervision', Activity, 'Supervision des activités'],
             ['requests', ClipboardCheck, 'Demandes d’accès'],
             ['users', Users, 'Utilisateurs'],
             ['departments', Building2, 'Départements'],
@@ -207,6 +215,32 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
                 <div className="admin-dept-preview"><h4>Départements enregistrés</h4>{departments.slice(0,5).map(dept => <div key={dept.id}><span>{dept.name}</span><small>{dept.code}</small></div>)}{departments.length === 0 && <Empty text="Créez votre premier département pour commencer."/>}</div>
               </section>
             </div>
+          </>}
+
+          {!loading && tab === 'supervision' && <>
+            <div className="admin-welcome"><div><span>SUPERVISION OPÉRATIONNELLE</span><h2>{operational?.school_year?.label ?? 'Aucune année scolaire active'}</h2><p>Vue consolidée des établissements, groupes pédagogiques, enrôlements et livraisons enregistrés sur le terrain.</p></div><button className="admin-secondary" onClick={() => void load()}><RefreshCw size={15}/> Actualiser</button></div>
+            <div className="admin-metrics">
+              <Metric icon={<Building2/>} label="Établissements actifs" value={Number(operational?.totals.active_schools ?? 0).toLocaleString('fr-FR')} hint="Tous départements"/>
+              <Metric icon={<BookOpen/>} label="Groupes pédagogiques" value={Number(operational?.totals.groups ?? 0).toLocaleString('fr-FR')} hint={`${Number(operational?.totals.reports ?? 0).toLocaleString('fr-FR')} rapports renseignés`}/>
+              <Metric icon={<Users/>} label="Effectifs enrôlés" value={Number(operational?.totals.enrolled ?? 0).toLocaleString('fr-FR')} hint={`Capacité : ${Number(operational?.totals.capacity ?? 0).toLocaleString('fr-FR')}`}/>
+              <Metric icon={<PackageCheck/>} label="Livrés uniques" value={Number(operational?.totals.delivered_unique ?? 0).toLocaleString('fr-FR')} hint={`${Number(operational?.totals.reprints ?? 0).toLocaleString('fr-FR')} réimpressions à part`}/>
+            </div>
+            <div className="admin-metrics">
+              <Metric icon={<Users/>} label="Reste à enrôler" value={Number(operational?.totals.enrollment_remaining ?? 0).toLocaleString('fr-FR')} hint="Capacité moins enrôlés"/>
+              <Metric icon={<Truck/>} label="Reste à livrer" value={Number(operational?.totals.delivery_remaining ?? 0).toLocaleString('fr-FR')} hint="Enrôlés moins livrés uniques"/>
+              <Metric icon={<Activity/>} label="Corrections d’enrôlement" value={Number(operational?.totals.enrollment_corrections ?? 0).toLocaleString('fr-FR')} hint="Comptabilisées séparément"/>
+              <Metric icon={<AlertCircle/>} label="Anomalies détectées" value={Number(operational?.totals.anomalies ?? 0).toLocaleString('fr-FR')} hint="Dépassements à examiner" emphasis={Number(operational?.totals.anomalies ?? 0)>0}/>
+            </div>
+            <section className="admin-panel"><div className="admin-panel-head"><div><h3>Situation par département</h3><p>Consolidation des données réelles de l’année scolaire sélectionnée.</p></div><span className="admin-count">{operational?.departments.length ?? 0} départements</span></div>
+              <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Département</th><th>Écoles</th><th>Groupes</th><th>Effectif</th><th>Enrôlés</th><th>Taux enrôlement</th><th>Livrés uniques</th><th>Taux livraison</th><th>Anomalies</th></tr></thead><tbody>
+                {(operational?.departments ?? []).map(item => <tr key={item.department_id}><td><b>{item.name}</b><small>{item.code}</small></td><td>{item.schools}</td><td>{item.groups}</td><td>{item.capacity.toLocaleString('fr-FR')}</td><td>{item.enrolled.toLocaleString('fr-FR')}</td><td>{item.enrollment_rate == null ? '—' : `${item.enrollment_rate.toLocaleString('fr-FR')} %`}</td><td>{item.delivered_unique.toLocaleString('fr-FR')}</td><td>{item.delivery_rate == null ? '—' : `${item.delivery_rate.toLocaleString('fr-FR')} %`}</td><td>{item.anomalies > 0 ? <Status status="REJECTED"/> : <Status status="APPROVED"/>}</td></tr>)}
+              </tbody></table>{(operational?.departments.length ?? 0)===0 && <Empty text="Aucun département disponible."/>}</div>
+            </section>
+            <section className="admin-panel"><div className="admin-panel-head"><div><h3>Suivi des établissements</h3><p>État des déclarations par école, sans modifier les données du terrain.</p></div><span className="admin-count">{operational?.schools.length ?? 0} établissements</span></div>
+              <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Établissement</th><th>Groupes</th><th>Rapports</th><th>Effectif</th><th>Enrôlés</th><th>Reste à enrôler</th><th>Livrés uniques</th><th>Reste à livrer</th><th>Réimpressions</th></tr></thead><tbody>
+                {(operational?.schools ?? []).map(item => <tr key={item.school_id}><td><b>{item.name}</b><small>{item.code}</small></td><td>{item.groups}</td><td>{item.reports}</td><td>{item.capacity.toLocaleString('fr-FR')}</td><td>{item.enrolled.toLocaleString('fr-FR')}</td><td>{item.enrollment_remaining.toLocaleString('fr-FR')}</td><td>{item.delivered_unique.toLocaleString('fr-FR')}</td><td>{item.delivery_remaining.toLocaleString('fr-FR')}</td><td>{item.reprints.toLocaleString('fr-FR')}</td></tr>)}
+              </tbody></table>{(operational?.schools.length ?? 0)===0 && <Empty text="Aucun établissement actif."/>}</div>
+            </section>
           </>}
 
           {!loading && tab === 'requests' && <section className="admin-panel">
