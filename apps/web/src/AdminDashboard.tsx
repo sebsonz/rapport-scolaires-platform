@@ -259,13 +259,13 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
               </div>
               <div className="admin-supervision-filter-meta"><span>{supervisionDepartments.length} département(s) affiché(s)</span><span>{supervisionSchools.length} école(s) affichée(s)</span></div>
             </section>
-            <div className="admin-metrics">
+            <div className="admin-metrics admin-supervision-kpis-primary">
               <Metric icon={<Building2/>} label="Établissements actifs" value={Number(operational?.totals.active_schools ?? 0).toLocaleString('fr-FR')} hint="Tous départements"/>
               <Metric icon={<BookOpen/>} label="Groupes pédagogiques" value={Number(operational?.totals.groups ?? 0).toLocaleString('fr-FR')} hint={`${Number(operational?.totals.reports ?? 0).toLocaleString('fr-FR')} rapports renseignés`}/>
               <Metric icon={<Users/>} label="Effectifs enrôlés" value={Number(operational?.totals.enrolled ?? 0).toLocaleString('fr-FR')} hint={`Capacité : ${Number(operational?.totals.capacity ?? 0).toLocaleString('fr-FR')}`}/>
               <Metric icon={<PackageCheck/>} label="Livrés uniques" value={Number(operational?.totals.delivered_unique ?? 0).toLocaleString('fr-FR')} hint={`${Number(operational?.totals.reprints ?? 0).toLocaleString('fr-FR')} réimpressions à part`}/>
             </div>
-            <div className="admin-metrics">
+            <div className="admin-metrics admin-supervision-kpis-secondary">
               <Metric icon={<Users/>} label="Reste à enrôler" value={Number(operational?.totals.enrollment_remaining ?? 0).toLocaleString('fr-FR')} hint="Capacité moins enrôlés"/>
               <Metric icon={<Truck/>} label="Reste à livrer" value={Number(operational?.totals.delivery_remaining ?? 0).toLocaleString('fr-FR')} hint="Enrôlés moins livrés uniques"/>
               <Metric icon={<Activity/>} label="Corrections d’enrôlement" value={Number(operational?.totals.enrollment_corrections ?? 0).toLocaleString('fr-FR')} hint="Comptabilisées séparément"/>
