@@ -50,6 +50,10 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [search, setSearch] = useState('');
+  const [supervisionDepartment, setSupervisionDepartment] = useState('');
+  const [supervisionSchool, setSupervisionSchool] = useState('');
+  const [supervisionSearch, setSupervisionSearch] = useState('');
+  const [supervisionAnomaliesOnly, setSupervisionAnomaliesOnly] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [requestAssignments, setRequestAssignments] = useState<Assignment[]>([{ department_id: '', role: 'CATEGORY_1' }]);
   const [reviewNote, setReviewNote] = useState('');
@@ -93,6 +97,19 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
     (item.full_name + ' ' + item.email).toLowerCase().includes(search.toLowerCase())
   ), [profiles, search]);
   const pendingRequests = requests.filter(item => item.status === 'PENDING');
+  const supervisionDepartments = useMemo(() => (operational?.departments ?? []).filter(item => {
+    const matchesDepartment = !supervisionDepartment || item.department_id === supervisionDepartment;
+    const matchesSearch = !supervisionSearch || `${item.name} ${item.code}`.toLowerCase().includes(supervisionSearch.toLowerCase());
+    const matchesAnomaly = !supervisionAnomaliesOnly || item.anomalies > 0;
+    return matchesDepartment && matchesSearch && matchesAnomaly;
+  }), [operational, supervisionDepartment, supervisionSearch, supervisionAnomaliesOnly]);
+  const supervisionSchools = useMemo(() => (operational?.schools ?? []).filter(item => {
+    const matchesDepartment = !supervisionDepartment || item.department_id === supervisionDepartment;
+    const matchesSchool = !supervisionSchool || item.school_id === supervisionSchool;
+    const matchesSearch = !supervisionSearch || `${item.name} ${item.code}`.toLowerCase().includes(supervisionSearch.toLowerCase());
+    return matchesDepartment && matchesSchool && matchesSearch;
+  }), [operational, supervisionDepartment, supervisionSchool, supervisionSearch]);
+  const supervisionSchoolOptions = useMemo(() => (operational?.schools ?? []).filter(item => !supervisionDepartment || item.department_id === supervisionDepartment), [operational, supervisionDepartment]);
 
   function openRequest(request: AccessRequest) {
     setSelectedRequest(request.user_id);
@@ -232,6 +249,16 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
 
           {!loading && tab === 'supervision' && <>
             <div className="admin-welcome"><div><span>SUPERVISION OPÉRATIONNELLE</span><h2>{operational?.school_year?.label ?? 'Aucune année scolaire active'}</h2><p>Vue consolidée des établissements, groupes pédagogiques, enrôlements et livraisons enregistrés sur le terrain.</p></div><button className="admin-secondary" onClick={() => void load()}><RefreshCw size={15}/> Actualiser</button></div>
+            <section className="admin-supervision-filters">
+              <div className="admin-supervision-filter-title"><div><b>Filtres de supervision</b><small>Affinez les résultats sans modifier les rapports enregistrés.</small></div><button className="admin-secondary small" onClick={() => { setSupervisionDepartment(''); setSupervisionSchool(''); setSupervisionSearch(''); setSupervisionAnomaliesOnly(false); }}>Réinitialiser</button></div>
+              <div className="admin-supervision-filter-controls">
+                <label><span>Département</span><select value={supervisionDepartment} onChange={event => { setSupervisionDepartment(event.target.value); setSupervisionSchool(''); }}><option value="">Tous les départements</option>{departments.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+                <label><span>Établissement</span><select value={supervisionSchool} onChange={event => setSupervisionSchool(event.target.value)}><option value="">Toutes les écoles</option>{supervisionSchoolOptions.map(item => <option key={item.school_id} value={item.school_id}>{item.name} ({item.code})</option>)}</select></label>
+                <label className="admin-supervision-search"><span>Recherche</span><div><Search size={15}/><input value={supervisionSearch} onChange={event => setSupervisionSearch(event.target.value)} placeholder="Nom ou code d’une école / département"/></div></label>
+                <label className="admin-supervision-check"><input type="checkbox" checked={supervisionAnomaliesOnly} onChange={event => setSupervisionAnomaliesOnly(event.target.checked)}/><span>Départements avec anomalies uniquement</span></label>
+              </div>
+              <div className="admin-supervision-filter-meta"><span>{supervisionDepartments.length} département(s) affiché(s)</span><span>{supervisionSchools.length} école(s) affichée(s)</span></div>
+            </section>
             <div className="admin-metrics">
               <Metric icon={<Building2/>} label="Établissements actifs" value={Number(operational?.totals.active_schools ?? 0).toLocaleString('fr-FR')} hint="Tous départements"/>
               <Metric icon={<BookOpen/>} label="Groupes pédagogiques" value={Number(operational?.totals.groups ?? 0).toLocaleString('fr-FR')} hint={`${Number(operational?.totals.reports ?? 0).toLocaleString('fr-FR')} rapports renseignés`}/>
@@ -246,13 +273,13 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
             </div>
             <section className="admin-panel"><div className="admin-panel-head"><div><h3>Situation par département</h3><p>Consolidation des données réelles de l’année scolaire sélectionnée.</p></div><span className="admin-count">{operational?.departments.length ?? 0} départements</span></div>
               <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Département</th><th>Écoles</th><th>Groupes</th><th>Effectif</th><th>Initial</th><th>Ratissage</th><th>Enrôlés</th><th>Taux enrôlement</th><th>Livraison initiale</th><th>Livraison ratissage</th><th>1ère remise après correction</th><th>Livrés uniques</th><th>Taux livraison</th><th>Anomalies</th></tr></thead><tbody>
-                {(operational?.departments ?? []).map(item => <tr key={item.department_id}><td><b>{item.name}</b><small>{item.code}</small></td><td>{item.schools}</td><td>{item.groups}</td><td>{item.capacity.toLocaleString('fr-FR')}</td><td>{item.enrollment_initial.toLocaleString('fr-FR')}</td><td>{item.enrollment_ratissage.toLocaleString('fr-FR')}</td><td>{item.enrolled.toLocaleString('fr-FR')}</td><td>{item.enrollment_rate == null ? '—' : `${item.enrollment_rate.toLocaleString('fr-FR')} %`}</td><td>{item.delivery_initial.toLocaleString('fr-FR')}</td><td>{item.delivery_ratissage.toLocaleString('fr-FR')}</td><td>{item.delivery_correction.toLocaleString('fr-FR')}</td><td>{item.delivered_unique.toLocaleString('fr-FR')}</td><td>{item.delivery_rate == null ? '—' : `${item.delivery_rate.toLocaleString('fr-FR')} %`}</td><td>{item.anomalies > 0 ? <Status status="REJECTED"/> : <Status status="APPROVED"/>}</td></tr>)}
-              </tbody></table>{(operational?.departments.length ?? 0)===0 && <Empty text="Aucun département disponible."/>}</div>
+                {supervisionDepartments.map(item => <tr key={item.department_id}><td><b>{item.name}</b><small>{item.code}</small></td><td>{item.schools}</td><td>{item.groups}</td><td>{item.capacity.toLocaleString('fr-FR')}</td><td>{item.enrollment_initial.toLocaleString('fr-FR')}</td><td>{item.enrollment_ratissage.toLocaleString('fr-FR')}</td><td>{item.enrolled.toLocaleString('fr-FR')}</td><td>{item.enrollment_rate == null ? '—' : `${item.enrollment_rate.toLocaleString('fr-FR')} %`}</td><td>{item.delivery_initial.toLocaleString('fr-FR')}</td><td>{item.delivery_ratissage.toLocaleString('fr-FR')}</td><td>{item.delivery_correction.toLocaleString('fr-FR')}</td><td>{item.delivered_unique.toLocaleString('fr-FR')}</td><td>{item.delivery_rate == null ? '—' : `${item.delivery_rate.toLocaleString('fr-FR')} %`}</td><td>{item.anomalies > 0 ? <Status status="REJECTED"/> : <Status status="APPROVED"/>}</td></tr>)}
+              </tbody></table>{supervisionDepartments.length===0 && <Empty text={supervisionAnomaliesOnly ? 'Aucun département avec anomalie pour ces filtres.' : 'Aucun département correspondant aux filtres.'}/>}</div>
             </section>
             <section className="admin-panel"><div className="admin-panel-head"><div><h3>Suivi des établissements</h3><p>État des déclarations par école, sans modifier les données du terrain.</p></div><span className="admin-count">{operational?.schools.length ?? 0} établissements</span></div>
               <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Établissement</th><th>Groupes</th><th>Rapports</th><th>Effectif</th><th>Enrôlement initial</th><th>Ratissage</th><th>Enrôlés réels</th><th>Reste à enrôler</th><th>Livraison initiale</th><th>Livraison ratissage</th><th>1ère remise</th><th>Livrés uniques</th><th>Reste à livrer</th><th>Réimpressions</th></tr></thead><tbody>
-                {(operational?.schools ?? []).map(item => <tr key={item.school_id}><td><b>{item.name}</b><small>{item.code}</small></td><td>{item.groups}</td><td>{item.reports}</td><td>{item.capacity.toLocaleString('fr-FR')}</td><td>{item.enrollment_initial.toLocaleString('fr-FR')}</td><td>{item.enrollment_ratissage.toLocaleString('fr-FR')}</td><td>{item.enrolled.toLocaleString('fr-FR')}</td><td>{item.enrollment_remaining.toLocaleString('fr-FR')}</td><td>{item.delivery_initial.toLocaleString('fr-FR')}</td><td>{item.delivery_ratissage.toLocaleString('fr-FR')}</td><td>{item.delivery_correction.toLocaleString('fr-FR')}</td><td>{item.delivered_unique.toLocaleString('fr-FR')}</td><td>{item.delivery_remaining.toLocaleString('fr-FR')}</td><td>{item.reprints.toLocaleString('fr-FR')}</td></tr>)}
-              </tbody></table>{(operational?.schools.length ?? 0)===0 && <Empty text="Aucun établissement actif."/>}</div>
+                {supervisionSchools.map(item => <tr key={item.school_id}><td><b>{item.name}</b><small>{item.code}</small></td><td>{item.groups}</td><td>{item.reports}</td><td>{item.capacity.toLocaleString('fr-FR')}</td><td>{item.enrollment_initial.toLocaleString('fr-FR')}</td><td>{item.enrollment_ratissage.toLocaleString('fr-FR')}</td><td>{item.enrolled.toLocaleString('fr-FR')}</td><td>{item.enrollment_remaining.toLocaleString('fr-FR')}</td><td>{item.delivery_initial.toLocaleString('fr-FR')}</td><td>{item.delivery_ratissage.toLocaleString('fr-FR')}</td><td>{item.delivery_correction.toLocaleString('fr-FR')}</td><td>{item.delivered_unique.toLocaleString('fr-FR')}</td><td>{item.delivery_remaining.toLocaleString('fr-FR')}</td><td>{item.reprints.toLocaleString('fr-FR')}</td></tr>)}
+              </tbody></table>{supervisionSchools.length===0 && <Empty text="Aucun établissement correspondant aux filtres."/>}</div>
             </section>
           </>}
 
