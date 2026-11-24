@@ -280,6 +280,7 @@ begin
     'E',v_capacity-v_enrolled,
     'I',coalesce(v_initial_delivery,0)+v_other_deliveries,
     'total_enrolled',v_enrolled,
+    'J',case when v_enrolled=0 and coalesce(v_initial_delivery,0)+v_other_deliveries=0 then to_jsonb(''::text) else to_jsonb(v_enrolled=coalesce(v_initial_delivery,0)+v_other_deliveries) end,
     'total_delivered_unique',coalesce(v_initial_delivery,0)+v_other_deliveries
   )
   where r.id=p_report_id;
