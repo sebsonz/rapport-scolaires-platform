@@ -4,22 +4,24 @@ import { supabase } from './lib/supabase';
 import './AdminSchools.css';
 
 type Department = { id: string; code: string; name: string };
+type Commune = { id: string; department_id: string; code: string; name: string; is_active: boolean };
 type School = {
-  id: string; department_id: string; code: string; name: string; commune: string;
+  id: string; department_id: string; code: string; name: string; commune_id: string | null;
   arrondissement: string | null; locality: string | null; phone: string | null;
   director_name: string | null; is_active: boolean; created_at: string;
 };
 type SchoolForm = {
-  department_id: string; code: string; name: string; commune: string;
+  department_id: string; code: string; name: string; commune_id: string;
   arrondissement: string; locality: string; phone: string; director_name: string;
 };
 const emptyForm = (departmentId = ''): SchoolForm => ({
-  department_id: departmentId, code: '', name: '', commune: '',
+  department_id: departmentId, code: '', name: '', commune_id: '',
   arrondissement: '', locality: '', phone: '', director_name: '',
 });
 
 export default function AdminSchools({ departments }: { departments: Department[] }) {
   const [schools, setSchools] = useState<School[]>([]);
+  const [communes, setCommunes] = useState<Commune[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -36,29 +38,39 @@ export default function AdminSchools({ departments }: { departments: Department[
     setLoading(true);
     const { data, error: queryError } = await supabase
       .from('schools')
-      .select('id,department_id,code,name,commune,arrondissement,locality,phone,director_name,is_active,created_at')
+      .select('id,department_id,code,name,commune_id,arrondissement,locality,phone,director_name,is_active,created_at')
       .order('name');
-    if (queryError) setError(queryError.message);
-    else setSchools((data ?? []) as School[]);
+    const { data: communeData, error: communeError } = await supabase
+      .from('communes')
+      .select('id,department_id,code,name,is_active')
+      .eq('is_active', true)
+      .order('name');
+    if (queryError || communeError) setError(queryError?.message ?? communeError?.message ?? 'Impossible de charger les communes.');
+    else {
+      setSchools((data ?? []) as School[]);
+      setCommunes((communeData ?? []) as Commune[]);
+    }
     setLoading(false);
   }, []);
 
   useEffect(() => { void load(); }, [load]);
 
   const departmentById = useMemo(() => new Map(departments.map(item => [item.id, item])), [departments]);
+  const communeById = useMemo(() => new Map(communes.map(item => [item.id, item])), [communes]);
+  const communesForDepartment = useMemo(() => communes.filter(item => item.department_id === form.department_id), [communes, form.department_id]);
   const filtered = useMemo(() => schools.filter(school => {
-    const text = [school.name, school.code, school.commune, school.locality ?? ''].join(' ').toLowerCase();
+    const text = [school.name, school.code, school.commune_id ? communeById.get(school.commune_id)?.name ?? '' : '', school.locality ?? ''].join(' ').toLowerCase();
     return text.includes(search.toLowerCase())
       && (departmentFilter === 'ALL' || school.department_id === departmentFilter)
       && (statusFilter === 'ALL' || (statusFilter === 'ACTIVE' ? school.is_active : !school.is_active));
-  }), [schools, search, departmentFilter, statusFilter]);
+  }), [schools, search, departmentFilter, statusFilter, communeById]);
 
   function openForm(school?: School) {
     setEditing(school ?? null);
     setModalOpen(true);
     setForm(school ? {
       department_id: school.department_id, code: school.code, name: school.name,
-      commune: school.commune, arrondissement: school.arrondissement ?? '',
+      commune_id: school.commune_id ?? '', arrondissement: school.arrondissement ?? '',
       locality: school.locality ?? '', phone: school.phone ?? '',
       director_name: school.director_name ?? '',
     } : emptyForm(departments[0]?.id ?? ''));
@@ -75,7 +87,7 @@ export default function AdminSchools({ departments }: { departments: Department[
       p_department_id: form.department_id,
       p_code: form.code.trim(),
       p_name: form.name.trim(),
-      p_commune: form.commune.trim(),
+      p_commune_id: form.commune_id,
       p_arrondissement: form.arrondissement.trim() || null,
       p_locality: form.locality.trim() || null,
       p_phone: form.phone.trim() || null,
@@ -128,7 +140,7 @@ export default function AdminSchools({ departments }: { departments: Department[
         {filtered.map(school => <tr key={school.id}>
           <td><b>{school.name}</b><small>Code : {school.code}</small></td>
           <td>{departmentById.get(school.department_id)?.name ?? 'Département inconnu'}</td>
-          <td>{school.commune}<small>{school.arrondissement ? school.arrondissement + ' · ' : ''}{school.locality ?? '—'}</small></td>
+          <td>{(school.commune_id ? communeById.get(school.commune_id)?.name : null) ?? 'Commune non définie'}<small>{school.arrondissement ? school.arrondissement + ' · ' : ''}{school.locality ?? '—'}</small></td>
           <td><span className={school.is_active ? 'school-status active' : 'school-status inactive'}>{school.is_active ? 'Active' : 'Inactive'}</span></td>
           <td><div className="school-actions"><button className="admin-secondary small" onClick={() => openForm(school)}><Pencil size={13}/> Modifier</button><button className="admin-icon-button" disabled={busy} onClick={() => void toggleStatus(school)} title={school.is_active ? 'Désactiver' : 'Activer'}><Power size={14}/></button></div></td>
         </tr>)}
@@ -138,10 +150,10 @@ export default function AdminSchools({ departments }: { departments: Department[
         <header><div><h3>{editing ? 'Modifier une école' : 'Créer une école'}</h3><p>Rattachez obligatoirement l’établissement à un département.</p></div><button className="admin-icon-button" onClick={() => { setEditing(null); setModalOpen(false); }}><X size={16}/></button></header>
         <form onSubmit={save}>
           <div className="schools-form-grid">
-            <label className="admin-field wide"><span>Département *</span><select value={form.department_id} onChange={event => setForm({...form,department_id:event.target.value})} required><option value="">Choisir un département</option>{departments.map(dept => <option key={dept.id} value={dept.id}>{dept.name} ({dept.code})</option>)}</select></label>
+            <label className="admin-field wide"><span>Département *</span><select value={form.department_id} onChange={event => setForm({...form,department_id:event.target.value,commune_id:''})} required><option value="">Choisir un département</option>{departments.map(dept => <option key={dept.id} value={dept.id}>{dept.name} ({dept.code})</option>)}</select></label>
             <label className="admin-field"><span>Code école *</span><input value={form.code} onChange={event => setForm({...form,code:event.target.value.toUpperCase()})} maxLength={30} required placeholder="Ex. ATL-001"/></label>
             <label className="admin-field"><span>Nom de l’école *</span><input value={form.name} onChange={event => setForm({...form,name:event.target.value})} maxLength={160} required placeholder="Nom officiel"/></label>
-            <label className="admin-field"><span>Commune *</span><input value={form.commune} onChange={event => setForm({...form,commune:event.target.value})} maxLength={120} required/></label>
+            <label className="admin-field"><span>Commune *</span><select value={form.commune_id} onChange={event => setForm({...form,commune_id:event.target.value})} required disabled={!form.department_id || communesForDepartment.length === 0}><option value="">{form.department_id ? 'Choisir une commune' : 'Choisir d’abord un département'}</option>{communesForDepartment.map(commune => <option key={commune.id} value={commune.id}>{commune.name}</option>)}</select></label>
             <label className="admin-field"><span>Arrondissement</span><input value={form.arrondissement} onChange={event => setForm({...form,arrondissement:event.target.value})} maxLength={120}/></label>
             <label className="admin-field wide"><span>Adresse / Localité</span><input value={form.locality} onChange={event => setForm({...form,locality:event.target.value})} maxLength={240}/></label>
             <label className="admin-field"><span>Téléphone</span><input value={form.phone} onChange={event => setForm({...form,phone:event.target.value})} maxLength={40}/></label>

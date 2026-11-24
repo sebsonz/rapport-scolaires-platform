@@ -8,7 +8,9 @@ import './SchoolReportDashboard.css';
 import SchoolPedagogicalClasses from './SchoolPedagogicalClasses';
 
 type Membership = { department_id: string | null; role: 'CENTRAL_ADMIN' | 'CATEGORY_1' | 'CATEGORY_2' };
-type School = { id: string; department_id: string; code: string; name: string };
+type Department = { id: string; code: string; name: string };
+type Commune = { id: string; department_id: string; code: string; name: string };
+type School = { id: string; department_id: string; code: string; name: string; commune_id: string | null };
 type Year = { id: string; code: string; label: string };
 type Promotion = { id: string; code: string; label: string; cycle: string };
 type Group = { id: string; school_id: string; school_year_id: string; promotion_id: string; group_code: string; is_active: boolean };
@@ -30,6 +32,10 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   onSignOut: () => void;
 }) {
   const [schools, setSchools] = useState<School[]>([]);
+  const [communes, setCommunes] = useState<Commune[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
+  const [selectedCommune, setSelectedCommune] = useState('');
   const [schoolId, setSchoolId] = useState('');
   const schoolIdRef = useRef('');
   const loadRequestRef = useRef(0);
@@ -53,10 +59,6 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  const isCentralAdmin = memberships.some(item => item.role === 'CENTRAL_ADMIN');
-  const departmentIds = useMemo(() => [...new Set(memberships
-    .filter(item => item.department_id && item.role !== 'CENTRAL_ADMIN')
-    .map(item => item.department_id as string))], [memberships]);
   const selectedSchoolForRole = schools.find(item => item.id === schoolId);
   const scopedRoles = new Set(memberships
     .filter(item => item.role === 'CENTRAL_ADMIN' || item.department_id === selectedSchoolForRole?.department_id)
@@ -68,23 +70,48 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     if (!supabase) { setError('La connexion Supabase est indisponible.'); setLoading(false); return; }
     const requestId = ++loadRequestRef.current;
     setLoading(true); setError('');
-    const [schoolResult, yearResult, promotionResult] = await Promise.all([
-      supabase.from('schools').select('id,department_id,code,name').eq('is_active', true).order('name'),
+    const [catalogResult, yearResult, promotionResult] = await Promise.all([
+      supabase.rpc('get_school_location_filter_catalog'),
       supabase.from('school_years').select('id,code,label').eq('is_active', true).order('starts_on', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('promotions').select('id,code,label,cycle').eq('is_active', true).order('display_order').order('label'),
     ]);
     if (requestId !== loadRequestRef.current) return;
-    const firstError = schoolResult.error ?? yearResult.error ?? promotionResult.error;
+    const firstError = catalogResult.error ?? yearResult.error ?? promotionResult.error;
     if (firstError) { setError(firstError.message); setLoading(false); return; }
-    const visibleSchools = (schoolResult.data ?? []).filter(s => isCentralAdmin || departmentIds.includes(s.department_id));
+    const catalogRows = (catalogResult.data ?? []) as Array<{
+      department_id: string; department_code: string; department_name: string;
+      commune_id: string | null; commune_code: string | null; commune_name: string | null;
+      school_id: string; school_code: string; school_name: string;
+    }>;
+    const departmentMap = new Map<string, Department>();
+    const communeMap = new Map<string, Commune>();
+    const schoolMap = new Map<string, School>();
+    for (const row of catalogRows) {
+      departmentMap.set(row.department_id, {
+        id: row.department_id, code: row.department_code, name: row.department_name,
+      });
+      if (row.commune_id && row.commune_code && row.commune_name) {
+        communeMap.set(row.commune_id, {
+          id: row.commune_id, department_id: row.department_id,
+          code: row.commune_code, name: row.commune_name,
+        });
+      }
+      schoolMap.set(row.school_id, {
+        id: row.school_id, department_id: row.department_id,
+        code: row.school_code, name: row.school_name, commune_id: row.commune_id,
+      });
+    }
+    const visibleSchools = [...schoolMap.values()].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
     const activeYear = yearResult.data as Year | null;
     if (requestId !== loadRequestRef.current) return;
     setSchools(visibleSchools);
+    setCommunes([...communeMap.values()]);
+    setDepartments([...departmentMap.values()]);
     setYear(activeYear);
     setPromotions((promotionResult.data ?? []) as Promotion[]);
     const preferredSchoolId = requestedSchoolId ?? schoolIdRef.current;
     const currentSchool = keepSchool && visibleSchools.some(s => s.id === preferredSchoolId)
-      ? preferredSchoolId : (visibleSchools[0]?.id ?? '');
+      ? preferredSchoolId : (requestedSchoolId === '' ? '' : (visibleSchools[0]?.id ?? ''));
     schoolIdRef.current = currentSchool;
     setSchoolId(currentSchool);
     if (!currentSchool || !activeYear) {
@@ -124,11 +151,24 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     } else { setOperations([]); setDeliveryInitialCorrections([]); }
     setSelectedGroup(current => nextGroups.some(g => g.id === current) ? current : (nextGroups[0]?.id ?? ''));
     setLoading(false);
-  }, [departmentIds, isCentralAdmin]);
+  }, []);
 
   useEffect(() => { void load(false); }, [load]);
 
   const school = schools.find(item => item.id === schoolId);
+  const filteredSchools = useMemo(() => schools.filter(item =>
+    (!selectedDepartmentId || item.department_id === selectedDepartmentId)
+    && (!selectedCommune || item.commune_id === selectedCommune)
+  ), [schools, selectedDepartmentId, selectedCommune]);
+  const availableCommunes = useMemo(() => communes.filter(commune =>
+    (!selectedDepartmentId || commune.department_id === selectedDepartmentId)
+    && schools.some(school => school.department_id === commune.department_id && school.commune_id === commune.id)
+  ).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
+  [communes, schools, selectedDepartmentId]);
+  const availableDepartments = useMemo(() => departments.filter(department =>
+    schools.some(school => school.department_id === department.id)
+  ).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
+  [departments, schools]);
   const reportByGroup = useMemo(() => new Map(reports.map(r => [r.pedagogical_group_id, r])), [reports]);
   const promotionById = useMemo(() => new Map(promotions.map(p => [p.id, p])), [promotions]);
   const latestDeliveryCorrectionByReport = useMemo(() => {
@@ -308,7 +348,9 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       <header className="report-topbar">
         <div><h1>Tableau de bord — Rapports scolaires</h1><p>Suivi de l’enrôlement et de la livraison · {school?.name ?? 'Établissement'}</p></div>
         <div className="report-context">
-          {schools.length > 1 && <label><Building2/><select value={schoolId} onChange={e => { const nextSchoolId = e.target.value; schoolIdRef.current = nextSchoolId; setSchoolId(nextSchoolId); setSelectedGroup(''); setEntryType('INITIAL'); setCapacity(''); setInitialEnrollment(''); setQuantity(''); setNote(''); setNotice(''); setError(''); void load(true, nextSchoolId); }}>{schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
+          <label><span>Département</span><select value={selectedDepartmentId} disabled={availableDepartments.length === 0} onChange={e => { const nextDepartmentId = e.target.value; const candidates = schools.filter(s => !nextDepartmentId || s.department_id === nextDepartmentId); const nextSchoolId = candidates[0]?.id ?? ''; setSelectedDepartmentId(nextDepartmentId); setSelectedCommune(''); setSelectedGroup(''); schoolIdRef.current = nextSchoolId; void load(true, nextSchoolId); }}><option value="">{availableDepartments.length ? 'Tous les départements' : 'Aucun établissement actif'}</option>{availableDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+          <label><span>Commune</span><select value={selectedCommune} onChange={e => { const nextCommune = e.target.value; const candidates = schools.filter(s => (!selectedDepartmentId || s.department_id === selectedDepartmentId) && s.commune_id === nextCommune); const nextSchoolId = candidates[0]?.id ?? ''; setSelectedCommune(nextCommune); setSelectedGroup(''); schoolIdRef.current = nextSchoolId; void load(true, nextSchoolId); }}><option value="">Toutes</option>{availableCommunes.map(commune => <option key={commune.id} value={commune.id}>{commune.name}</option>)}</select></label>
+          {filteredSchools.length > 1 && <label><Building2/><select value={schoolId} onChange={e => { const nextSchoolId = e.target.value; const nextSchool = schools.find(s => s.id === nextSchoolId); schoolIdRef.current = nextSchoolId; setSchoolId(nextSchoolId); if (nextSchool) { setSelectedDepartmentId(nextSchool.department_id); setSelectedCommune(nextSchool.commune_id ?? ''); } setSelectedGroup(''); setEntryType('INITIAL'); setCapacity(''); setInitialEnrollment(''); setQuantity(''); setNote(''); setNotice(''); setError(''); void load(true, nextSchoolId); }}>{filteredSchools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
           <span><BookOpen/> {year?.label ?? 'Aucune année active'}</span>
           <button onClick={() => void load()} disabled={loading}><RefreshCw/></button>
         </div>
