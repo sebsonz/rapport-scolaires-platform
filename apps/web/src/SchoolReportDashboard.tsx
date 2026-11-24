@@ -45,11 +45,16 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
+  const isCentralAdmin = memberships.some(item => item.role === 'CENTRAL_ADMIN');
   const departmentIds = useMemo(() => [...new Set(memberships
     .filter(item => item.department_id && item.role !== 'CENTRAL_ADMIN')
     .map(item => item.department_id as string))], [memberships]);
-  const canEnrollment = roles.has('CATEGORY_1') || roles.has('CENTRAL_ADMIN');
-  const canDelivery = roles.has('CATEGORY_2') || roles.has('CENTRAL_ADMIN');
+  const selectedSchoolForRole = schools.find(item => item.id === schoolId);
+  const scopedRoles = new Set(memberships
+    .filter(item => item.role === 'CENTRAL_ADMIN' || item.department_id === selectedSchoolForRole?.department_id)
+    .map(item => item.role));
+  const canEnrollment = scopedRoles.has('CATEGORY_1') || scopedRoles.has('CENTRAL_ADMIN');
+  const canDelivery = scopedRoles.has('CATEGORY_2') || scopedRoles.has('CENTRAL_ADMIN');
 
   const load = useCallback(async (keepSchool = true, requestedSchoolId?: string) => {
     if (!supabase) { setError('La connexion Supabase est indisponible.'); setLoading(false); return; }
@@ -61,7 +66,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     ]);
     const firstError = schoolResult.error ?? yearResult.error ?? promotionResult.error;
     if (firstError) { setError(firstError.message); setLoading(false); return; }
-    const visibleSchools = (schoolResult.data ?? []).filter(s => departmentIds.includes(s.department_id));
+    const visibleSchools = (schoolResult.data ?? []).filter(s => isCentralAdmin || departmentIds.includes(s.department_id));
     const activeYear = yearResult.data as Year | null;
     setSchools(visibleSchools);
     setYear(activeYear);
@@ -95,9 +100,9 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     } else setOperations([]);
     setSelectedGroup(current => nextGroups.some(g => g.id === current) ? current : (nextGroups[0]?.id ?? ''));
     setLoading(false);
-  }, [departmentIds, schoolId]);
+  }, [departmentIds, isCentralAdmin, schoolId]);
 
-  useEffect(() => { void load(false); }, [departmentIds]);
+  useEffect(() => { void load(false); }, [load]);
 
   const school = schools.find(item => item.id === schoolId);
   const reportByGroup = useMemo(() => new Map(reports.map(r => [r.pedagogical_group_id, r])), [reports]);
