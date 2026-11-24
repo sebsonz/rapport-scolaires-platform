@@ -40,6 +40,15 @@ AS $$
    AND c.is_active = true
   WHERE auth.uid() IS NOT NULL
     AND s.is_active = true
+    AND (
+      public.is_central_admin()
+      OR EXISTS (
+        SELECT 1
+        FROM public.school_memberships m
+        WHERE m.user_id = auth.uid()
+          AND m.department_id = s.department_id
+      )
+    )
   ORDER BY d.name, c.name NULLS LAST, s.name;
 $$;
 
@@ -49,6 +58,6 @@ GRANT EXECUTE ON FUNCTION public.get_school_location_filter_catalog()
   TO authenticated;
 
 COMMENT ON FUNCTION public.get_school_location_filter_catalog() IS
-  'Returns only department, active commune and active school identifiers/codes/names for geographic filters. Does not expose report data or grant access to school operations; those remain governed by existing RLS and role checks.';
+  'Returns only department, active commune and active school identifiers/codes/names for departments assigned to the authenticated user; CENTRAL_ADMIN sees all departments. Category 1 / Category 2 roles do not filter the geographic catalogue. Does not expose report data or grant access to school operations; those remain governed by existing RLS and role checks.';
 
 COMMIT;
