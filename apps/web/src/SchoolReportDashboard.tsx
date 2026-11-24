@@ -95,7 +95,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       : keepSchool && visibleSchools.some(s => s.id === preferredSchoolId)
         ? preferredSchoolId : (visibleSchools[0]?.id ?? '');
     const currentDepartmentId = visibleSchools.find(s => s.id === currentSchool)?.department_id ?? visibleDepartments[0]?.id ?? '';
-    setDepartmentId(currentDepartmentId);
+    if (currentSchool) setDepartmentId(currentDepartmentId);
     if (currentSchool && !visibleSchools.some(s => s.id === preferredSchoolId)) setCommune('');
     schoolIdRef.current = currentSchool;
     setSchoolId(currentSchool);
@@ -355,7 +355,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       {notice && <div className="report-alert success"><CheckCircle2/> {notice}</div>}
       {loading ? <div className="report-loading"><RefreshCw className="spin"/> Chargement des données de l’établissement…</div> : <>
         {!year && <div className="report-alert error">Aucune année scolaire active n’a été définie par l’administration centrale.</div>}
-        {!school && <div className="report-empty">Aucun établissement autorisé n’est associé à ce compte.</div>}
+        {!school && <div className="report-empty">{schools.length ? 'Aucun établissement ne correspond aux filtres sélectionnés.' : 'Aucun établissement autorisé n’est associé à ce compte.'}</div>}
         {school && <>
           <section className="report-school-banner"><div className="report-school-icon"><Building2/></div><div><h2>{school.name}</h2><p>{school.code} · {year?.label}</p></div><div className="report-category cat-one"><Users/><b>Catégorie 1</b><small>Enrôlement · Ratissage · Correction</small></div><div className="report-category cat-two"><Truck/><b>Catégorie 2</b><small>Livraison · Réimpression</small></div><div className="report-category cat-common"><Users/><b>Tableau de bord commun</b><small>Données partagées et actualisées</small></div></section>
           <SchoolPedagogicalClasses schoolId={school.id} schoolName={school.name} yearId={year?.id ?? ''} yearLabel={year?.label ?? ''} promotions={promotions} groups={groups} canConfigure={canEnrollment} onSaved={() => void load()}/>
