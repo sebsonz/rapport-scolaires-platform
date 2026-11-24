@@ -77,7 +77,12 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       supabase.from('school_years').select('id,code,label').eq('is_active', true).order('starts_on', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('promotions').select('id,code,label,cycle').eq('is_active', true).order('display_order').order('label'),
     ]);
-    const departmentResult = await supabase.from('departments').select('id,code,name').order('name');
+    const departmentQuery = supabase.from('departments').select('id,code,name').order('name');
+    const departmentResult = isCentralAdmin
+      ? await departmentQuery
+      : departmentIds.length
+        ? await departmentQuery.in('id', departmentIds)
+        : { data: [], error: null };
     if (requestId !== loadRequestRef.current) return;
     const firstError = schoolResult.error ?? yearResult.error ?? promotionResult.error;
     if (firstError) { setError(firstError.message); setLoading(false); return; }
@@ -325,7 +330,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       <header className="report-topbar">
         <div><h1>Tableau de bord — Rapports scolaires</h1><p>Suivi de l’enrôlement et de la livraison · {school?.name ?? 'Établissement'}</p></div>
         <div className="report-context">
-          <label><span>Département</span><select value={selectedDepartmentId} disabled={departments.length === 0} onChange={e => { const nextDepartmentId = e.target.value; const candidates = schools.filter(s => !nextDepartmentId || s.department_id === nextDepartmentId); const nextSchoolId = candidates[0]?.id ?? ''; setSelectedDepartmentId(nextDepartmentId); setSelectedCommune(''); setSelectedGroup(''); schoolIdRef.current = nextSchoolId; void load(true, nextSchoolId); }}><option value="">{departments.length ? 'Tous' : 'Aucun département disponible'}</option>{departments.filter(d => schools.some(s => s.department_id === d.id)).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+          <label><span>Département</span><select value={selectedDepartmentId} disabled={departments.length === 0} onChange={e => { const nextDepartmentId = e.target.value; const candidates = schools.filter(s => !nextDepartmentId || s.department_id === nextDepartmentId); const nextSchoolId = candidates[0]?.id ?? ''; setSelectedDepartmentId(nextDepartmentId); setSelectedCommune(''); setSelectedGroup(''); schoolIdRef.current = nextSchoolId; void load(true, nextSchoolId); }}><option value="">{isCentralAdmin ? 'Tous les départements' : departments.length ? 'Choisir un département' : 'Aucun département affecté'}</option>{departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
           <label><span>Commune</span><select value={selectedCommune} onChange={e => { const nextCommune = e.target.value; const candidates = schools.filter(s => (!selectedDepartmentId || s.department_id === selectedDepartmentId) && (s.commune ?? '') === nextCommune); const nextSchoolId = candidates[0]?.id ?? ''; setSelectedCommune(nextCommune); setSelectedGroup(''); schoolIdRef.current = nextSchoolId; void load(true, nextSchoolId); }}><option value="">Toutes</option>{availableCommunes.map(commune => <option key={commune} value={commune}>{commune}</option>)}</select></label>
           {filteredSchools.length > 1 && <label><Building2/><select value={schoolId} onChange={e => { const nextSchoolId = e.target.value; const nextSchool = schools.find(s => s.id === nextSchoolId); schoolIdRef.current = nextSchoolId; setSchoolId(nextSchoolId); if (nextSchool) { setSelectedDepartmentId(nextSchool.department_id); setSelectedCommune(nextSchool.commune ?? ''); } setSelectedGroup(''); setEntryType('INITIAL'); setCapacity(''); setInitialEnrollment(''); setQuantity(''); setNote(''); setNotice(''); setError(''); void load(true, nextSchoolId); }}>{filteredSchools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
           <span><BookOpen/> {year?.label ?? 'Aucune année active'}</span>
