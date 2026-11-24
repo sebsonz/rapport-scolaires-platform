@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { BookOpen, Building2, ChartNoAxesCombined, ClipboardList, FileText, GraduationCap, LayoutDashboard, LogOut, Search, ShieldCheck, Truck, Users } from 'lucide-react';
+import { Building2, ChartNoAxesCombined, FileText, GraduationCap, LayoutDashboard, LogOut, Search, ShieldCheck, Truck, Users } from 'lucide-react';
 type Page = 'dashboard'|'schools'|'reports'|'deliveries'|'statistics'|'admin';
 type Role = 'CENTRAL_ADMIN'|'CATEGORY_1'|'CATEGORY_2';
 const schools=[{id:'s1',name:'CEG L’Entente',department:'Littoral',code:'LIT-001',enrolled:842},{id:'s2',name:'CEG Sainte-Rita',department:'Littoral',code:'LIT-002',enrolled:713},{id:'s3',name:'CEG Akpakpa',department:'Littoral',code:'LIT-003',enrolled:925}];
