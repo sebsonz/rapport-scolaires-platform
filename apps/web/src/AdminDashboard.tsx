@@ -9,6 +9,7 @@ import type { UserProfile } from './auth/AuthContext';
 import AdminSchools from './AdminSchools';
 import AdminClasses from './AdminClasses';
 import AdminOrganizations from './AdminOrganizations';
+import SchoolReportDashboard from './SchoolReportDashboard';
 
 type Role = 'CATEGORY_1' | 'CATEGORY_2';
 type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -36,6 +37,7 @@ const labels: Record<Tab, string> = {
 
 export default function AdminDashboard({ profile, onSignOut }: { profile: UserProfile | null; onSignOut: () => void }) {
   const [tab, setTab] = useState<Tab>('overview');
+  const [showUserDashboard, setShowUserDashboard] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
@@ -164,6 +166,14 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
 
   const metric = (key: string) => Number(overview[key] ?? 0).toLocaleString('fr-FR');
 
+  if (showUserDashboard) {
+    return <SchoolReportDashboard
+      memberships={[{ department_id: null, role: 'CENTRAL_ADMIN' }]}
+      onSignOut={onSignOut}
+      onBackToAdmin={() => setShowUserDashboard(false)}
+    />;
+  }
+
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
@@ -193,7 +203,7 @@ export default function AdminDashboard({ profile, onSignOut }: { profile: UserPr
       <main className="admin-main">
         <header className="admin-topbar">
           <div><span>PLATEFORME / ADMINISTRATION</span><h1>{labels[tab]}</h1></div>
-          <div className="admin-top-actions"><span className="admin-secure"><ShieldCheck size={15}/> Session sécurisée</span><button className="admin-icon-button" onClick={() => void load()} title="Actualiser"><RefreshCw size={16}/></button></div>
+          <div className="admin-top-actions"><button className="admin-secondary" onClick={() => setShowUserDashboard(true)}><LayoutDashboard size={15}/> Dashboard utilisateur</button><span className="admin-secure"><ShieldCheck size={15}/> Session sécurisée</span><button className="admin-icon-button" onClick={() => void load()} title="Actualiser"><RefreshCw size={16}/></button></div>
         </header>
         <div className="admin-content">
           {error && <div className="admin-alert error"><AlertCircle size={17}/>{error}<button onClick={() => setError('')}><X size={15}/></button></div>}
