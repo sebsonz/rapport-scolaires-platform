@@ -59,7 +59,7 @@ export default function AdminSchools({ departments }: { departments: Department[
   const communeById = useMemo(() => new Map(communes.map(item => [item.id, item])), [communes]);
   const communesForDepartment = useMemo(() => communes.filter(item => item.department_id === form.department_id), [communes, form.department_id]);
   const filtered = useMemo(() => schools.filter(school => {
-    const text = [school.name, school.code, communeById.get(school.commune_id)?.name ?? '', school.locality ?? ''].join(' ').toLowerCase();
+    const text = [school.name, school.code, school.commune_id ? communeById.get(school.commune_id)?.name ?? '' : '', school.locality ?? ''].join(' ').toLowerCase();
     return text.includes(search.toLowerCase())
       && (departmentFilter === 'ALL' || school.department_id === departmentFilter)
       && (statusFilter === 'ALL' || (statusFilter === 'ACTIVE' ? school.is_active : !school.is_active));
@@ -140,7 +140,7 @@ export default function AdminSchools({ departments }: { departments: Department[
         {filtered.map(school => <tr key={school.id}>
           <td><b>{school.name}</b><small>Code : {school.code}</small></td>
           <td>{departmentById.get(school.department_id)?.name ?? 'Département inconnu'}</td>
-          <td>{communeById.get(school.commune_id)?.name ?? 'Commune non définie'}<small>{school.arrondissement ? school.arrondissement + ' · ' : ''}{school.locality ?? '—'}</small></td>
+          <td>{(school.commune_id ? communeById.get(school.commune_id)?.name : null) ?? 'Commune non définie'}<small>{school.arrondissement ? school.arrondissement + ' · ' : ''}{school.locality ?? '—'}</small></td>
           <td><span className={school.is_active ? 'school-status active' : 'school-status inactive'}>{school.is_active ? 'Active' : 'Inactive'}</span></td>
           <td><div className="school-actions"><button className="admin-secondary small" onClick={() => openForm(school)}><Pencil size={13}/> Modifier</button><button className="admin-icon-button" disabled={busy} onClick={() => void toggleStatus(school)} title={school.is_active ? 'Désactiver' : 'Activer'}><Power size={14}/></button></div></td>
         </tr>)}
