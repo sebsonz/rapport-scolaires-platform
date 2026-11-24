@@ -8,3 +8,10 @@
 .report-entry-delivery h3{color:#6524b7}
 .report-entry-delivery h3 svg{color:#7b3fc3}
 .report-entry-intro{margin:-3px 0 3px;padding:10px 12px;border-radius:8px;background:#f3ebff;color:#5b3b83;font-size:11px;line-height:1.55}
+
+.report-entry-category-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:5px;border:1px solid #e0e6f0;border-radius:10px;background:#f4f6fa}
+.report-entry-category-switch button{display:flex;align-items:center;justify-content:center;gap:8px;min-height:42px;border:1px solid transparent;border-radius:7px;background:transparent;color:#52617a;font-size:12px;font-weight:750;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s}
+.report-entry-category-switch button.category-one.active{background:#e9f8ed;border-color:#b9dfc4;color:#176b32;box-shadow:0 1px 3px #14532d12}
+.report-entry-category-switch button.category-two.active{background:#f2eaff;border-color:#d8c4f2;color:#6524b7;box-shadow:0 1px 3px #6524b712}
+.report-entry-category-switch button:focus-visible{outline:2px solid #0874f9;outline-offset:2px}
+@media(max-width:420px){.report-entry-category-switch button{font-size:11px;gap:5px;padding:8px 4px}}
