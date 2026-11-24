@@ -42,6 +42,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
   const [quantity, setQuantity] = useState('');
   const [capacity, setCapacity] = useState('');
   const [initialEnrollment, setInitialEnrollment] = useState('');
+  const [editingInitial, setEditingInitial] = useState(false);
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -137,6 +138,22 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       deliveryRate: enrolled ? delivered / enrolled * 100 : 0, hasReport: !!report };
   }), [groups, reportByGroup, operations, promotionById]);
 
+  const selectedReport = selectedGroup ? reportByGroup.get(selectedGroup) : undefined;
+  const hasInitialReport = !!selectedReport;
+
+  useEffect(() => {
+    if (!selectedGroup) {
+      setCapacity('');
+      setInitialEnrollment('');
+      setEditingInitial(false);
+      return;
+    }
+    const data = reportByGroup.get(selectedGroup)?.report_data;
+    setCapacity(data?.C == null ? '' : String(data.C));
+    setInitialEnrollment(data?.D == null ? '' : String(data.D));
+    setEditingInitial(!data || (data.C == null && data.D == null));
+  }, [selectedGroup, reportByGroup]);
+
   const totals = useMemo(() => rows.reduce((t, r) => ({
     capacity: t.capacity + r.capacity, initial: t.initial + r.initial, ratissage: t.ratissage + r.ratissage,
     correction: t.correction + r.correction, enrolled: t.enrolled + r.enrolled, delivered: t.delivered + r.delivered,
@@ -163,7 +180,8 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
           p_changes: { C: String(cap), D: String(enrolled) },
         });
         if (saveError) throw saveError;
-        setNotice('Enrôlement initial enregistré.');
+        setNotice(hasInitialReport ? 'Modifications de la saisie initiale enregistrées.' : 'Enrôlement initial enregistré.');
+        setEditingInitial(false);
       } else {
         const amount = Number(quantity);
         if (!Number.isInteger(amount) || amount <= 0) throw new Error('La quantité doit être un entier positif.');
@@ -240,10 +258,13 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
             <form className="report-panel report-entry" onSubmit={submit}><h3><Users/> Saisie des données</h3>
               <label>Type d’opération<select value={entryType} onChange={e => setEntryType(e.target.value)}>{allowedTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
               <label>Classe<select value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)} required><option value="">Sélectionner une classe</option>{rows.map(r => <option key={r.group.id} value={r.group.id}>{r.promotion?.code} · {r.group.group_code}</option>)}</select></label>
-              {entryType === 'INITIAL' ? <div className="report-entry-fields"><label>Effectif de la classe<input type="number" min="1" step="1" value={capacity} onChange={e => setCapacity(e.target.value)} required/></label><label>Effectif enrôlé initial<input type="number" min="0" step="1" value={initialEnrollment} onChange={e => setInitialEnrollment(e.target.value)} required/></label></div>
-                : <label>Quantité<input type="number" min="1" step="1" value={quantity} onChange={e => setQuantity(e.target.value)} required/></label>}
+              {entryType === 'INITIAL' ? <>
+                {hasInitialReport && !editingInitial && <div className="report-initial-status"><span>Données initiales déjà enregistrées pour cette classe.</span><button type="button" className="report-edit-button" onClick={() => setEditingInitial(true)}>Modifier</button></div>}
+                <div className="report-entry-fields"><label>Effectif de la classe<input type="number" min="1" step="1" value={capacity} onChange={e => setCapacity(e.target.value)} required readOnly={!editingInitial}/></label><label>Effectif enrôlé initial<input type="number" min="0" step="1" value={initialEnrollment} onChange={e => setInitialEnrollment(e.target.value)} required readOnly={!editingInitial}/></label></div>
+                {editingInitial && <button className="report-submit" type="submit" disabled={busy || !selectedGroup}>{busy ? 'Enregistrement…' : hasInitialReport ? 'Enregistrer les modifications' : 'Enregistrer l’enrôlement initial'}</button>}
+              </> : <label>Quantité<input type="number" min="1" step="1" value={quantity} onChange={e => setQuantity(e.target.value)} required/></label>}
               {entryType !== 'INITIAL' && <label>Observations (facultatif)<textarea value={note} onChange={e => setNote(e.target.value)} rows={2}/></label>}
-              <button className="report-submit" disabled={busy || !selectedGroup}>{busy ? 'Enregistrement…' : 'Enregistrer l’opération'}</button>
+              {entryType !== 'INITIAL' && <button className="report-submit" disabled={busy || !selectedGroup}>{busy ? 'Enregistrement…' : 'Enregistrer l’opération'}</button>}
             </form>
             <article className="report-panel report-history" id="historique"><h3><History/> Dernières opérations</h3>{operations.slice(0,8).map(op => <div className="report-history-row" key={op.id}><span>{operationLabels[op.operation_type] ?? op.operation_type}</span><b>{fmt(op.quantity)}</b><small>{new Date(op.created_at).toLocaleString('fr-FR')}</small></div>)}{operations.length === 0 && <div className="report-empty">Aucune opération enregistrée.</div>}</article>
           </section>
