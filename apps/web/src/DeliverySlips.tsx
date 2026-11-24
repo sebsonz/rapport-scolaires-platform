@@ -22,6 +22,7 @@ const statusLabels: Record<Slip['status'], string> = {
 export default function DeliverySlips({ memberships }: { memberships: Membership[] }) {
   const isAdmin = memberships.some(item => item.role === 'CENTRAL_ADMIN');
   const [schools, setSchools] = useState<School[]>([]);
+  const [currentUserId, setCurrentUserId] = useState('');
   const [year, setYear] = useState<Year | null>(null);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [groups, setGroups] = useState<PedagogicalGroup[]>([]);
@@ -40,6 +41,8 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+
+  useEffect(() => { void supabase?.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? '')); }, []);
 
   const selectedSchool = schools.find(item => item.id === schoolId);
   const availableRoles = useMemo(() => {
@@ -100,7 +103,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
 
   const selectedSlip = slips.find(item => item.id === selectedSlipId);
   const selectedLines = lines.filter(item => item.delivery_slip_id === selectedSlipId);
-  const canManageSelected = Boolean(selectedSlip && (selectedSlip.created_by === memberships[0]?.user_id || isAdmin));
+  const canManageSelected = Boolean(selectedSlip && (selectedSlip.created_by === currentUserId || isAdmin));
   const canValidate = isAdmin && selectedSlip?.creator_role === 'CATEGORY_2' && selectedSlip.status === 'SUBMITTED';
   const promotionLabel = (id: string) => promotions.find(item => item.id === id)?.label ?? promotions.find(item => item.id === id)?.code ?? 'Promotion';
 
