@@ -5,6 +5,14 @@ BEGIN;
 ALTER TABLE public.delivery_slips
   ADD COLUMN IF NOT EXISTS creator_full_name text;
 
+-- Backfill the creator identity on existing documents before enforcing immutability.
+UPDATE public.delivery_slips d
+SET creator_full_name = up.full_name
+FROM public.user_profiles up
+WHERE up.user_id = d.created_by
+  AND d.creator_full_name IS NULL
+  AND nullif(trim(up.full_name), '') IS NOT NULL;
+
 CREATE OR REPLACE FUNCTION public.capture_delivery_slip_creator_identity()
 RETURNS trigger
 LANGUAGE plpgsql
