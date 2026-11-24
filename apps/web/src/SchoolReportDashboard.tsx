@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   Activity, BookOpen, Building2, CheckCircle2, ClipboardList, GraduationCap,
   History, LogOut, PackageCheck, RefreshCw, Truck, Users,
@@ -30,6 +30,8 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
 }) {
   const [schools, setSchools] = useState<School[]>([]);
   const [schoolId, setSchoolId] = useState('');
+  const schoolIdRef = useRef('');
+  const loadRequestRef = useRef(0);
   const [year, setYear] = useState<Year | null>(null);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -59,6 +61,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
 
   const load = useCallback(async (keepSchool = true, requestedSchoolId?: string) => {
     if (!supabase) { setError('La connexion Supabase est indisponible.'); setLoading(false); return; }
+    const requestId = ++loadRequestRef.current;
     setLoading(true); setError('');
     const [schoolResult, yearResult, promotionResult] = await Promise.all([
       supabase.from('schools').select('id,department_id,code,name').eq('is_active', true).order('name'),
@@ -69,12 +72,14 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     if (firstError) { setError(firstError.message); setLoading(false); return; }
     const visibleSchools = (schoolResult.data ?? []).filter(s => isCentralAdmin || departmentIds.includes(s.department_id));
     const activeYear = yearResult.data as Year | null;
+    if (requestId !== loadRequestRef.current) return;
     setSchools(visibleSchools);
     setYear(activeYear);
     setPromotions((promotionResult.data ?? []) as Promotion[]);
-    const preferredSchoolId = requestedSchoolId ?? schoolId;
+    const preferredSchoolId = requestedSchoolId ?? schoolIdRef.current;
     const currentSchool = keepSchool && visibleSchools.some(s => s.id === preferredSchoolId)
       ? preferredSchoolId : (visibleSchools[0]?.id ?? '');
+    schoolIdRef.current = currentSchool;
     setSchoolId(currentSchool);
     if (!currentSchool || !activeYear) {
       setGroups([]); setReports([]); setOperations([]); setLoading(false); return;
@@ -85,6 +90,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       supabase.from('school_reports').select('id,pedagogical_group_id,report_data')
         .eq('school_id', currentSchool).eq('school_year_id', activeYear.id),
     ]);
+    if (requestId !== loadRequestRef.current) return;
     if (groupResult.error || reportResult.error) {
       setError(groupResult.error?.message ?? reportResult.error?.message ?? 'Impossible de charger les rapports.');
       setLoading(false); return;
@@ -101,7 +107,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
     } else setOperations([]);
     setSelectedGroup(current => nextGroups.some(g => g.id === current) ? current : (nextGroups[0]?.id ?? ''));
     setLoading(false);
-  }, [departmentIds, isCentralAdmin, schoolId]);
+  }, [departmentIds, isCentralAdmin]);
 
   useEffect(() => { void load(false); }, [load]);
 
@@ -195,7 +201,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut }: {
       <header className="report-topbar">
         <div><h1>Tableau de bord — Rapports scolaires</h1><p>Suivi de l’enrôlement et de la livraison · {school?.name ?? 'Établissement'}</p></div>
         <div className="report-context">
-          {schools.length > 1 && <label><Building2/><select value={schoolId} onChange={e => { setSchoolId(e.target.value); void load(true, e.target.value); }}>{schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
+          {schools.length > 1 && <label><Building2/><select value={schoolId} onChange={e => { const nextSchoolId = e.target.value; schoolIdRef.current = nextSchoolId; setSchoolId(nextSchoolId); setSelectedGroup(''); setEntryType('INITIAL'); setCapacity(''); setInitialEnrollment(''); setQuantity(''); setNote(''); setNotice(''); setError(''); void load(true, nextSchoolId); }}>{schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
           <span><BookOpen/> {year?.label ?? 'Aucune année active'}</span>
           <button onClick={() => void load()} disabled={loading}><RefreshCw/></button>
         </div>
