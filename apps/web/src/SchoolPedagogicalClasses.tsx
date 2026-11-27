@@ -5,6 +5,9 @@ import './SchoolPedagogicalClasses.css';
 
 type Promotion = { id: string; code: string; label: string; cycle: string };
 type Group = { id: string; promotion_id: string; is_active: boolean };
+const comparePromotions = (a: Promotion, b: Promotion) =>
+  a.label.localeCompare(b.label, 'fr', { numeric: true, sensitivity: 'base' }) ||
+  a.code.localeCompare(b.code, 'fr', { numeric: true, sensitivity: 'base' });
 
 export default function SchoolPedagogicalClasses({
   schoolId, schoolName, yearId, yearLabel, promotions, groups, canConfigure, onSaved,
@@ -29,7 +32,7 @@ export default function SchoolPedagogicalClasses({
     [groups],
   );
   const activePromotions = useMemo(
-    () => activePromotionIds.map(id => promotions.find(item => item.id === id)).filter((item): item is Promotion => !!item),
+    () => activePromotionIds.map(id => promotions.find(item => item.id === id)).filter((item): item is Promotion => !!item).sort(comparePromotions),
     [activePromotionIds, promotions],
   );
 
@@ -86,7 +89,7 @@ export default function SchoolPedagogicalClasses({
               <span className="gp-count">{selected.length} choisie(s)</span>
             </div>
             <div className="gp-class-list">
-              {promotions.map(promotion => (
+              {[...promotions].sort(comparePromotions).map(promotion => (
                 <label className="gp-class-option" key={promotion.id}>
                   <input
                     type="checkbox"
@@ -126,7 +129,7 @@ export default function SchoolPedagogicalClasses({
               {activePromotions.map(promotion => (
                 <div className="gp-school-option" key={promotion.id}>
                   <span className="gp-school-check"><Check size={14}/></span>
-                  <span className="gp-class-code">{promotion.code}</span>
+
                   <span className="gp-class-name">{promotion.label}</span>
                   <small>{promotion.cycle}</small>
                 </div>

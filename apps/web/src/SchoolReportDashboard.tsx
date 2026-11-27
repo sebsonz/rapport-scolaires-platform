@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   Activity, BookOpen, Building2, CheckCircle2, ClipboardList, GraduationCap,
   History, LogOut, PackageCheck, RefreshCw, ShieldCheck, Truck, Users,
@@ -7,6 +7,7 @@ import { supabase } from './lib/supabase';
 import './SchoolReportDashboard.css';
 import SchoolPedagogicalClasses from './SchoolPedagogicalClasses';
 import DeliverySlips from './DeliverySlips';
+const SchoolCorrectionReasons = lazy(() => import('./features/school-correction-reasons/SchoolCorrectionReasons'));
 
 type Membership = { department_id: string | null; role: 'CENTRAL_ADMIN' | 'CATEGORY_1' | 'CATEGORY_2' };
 type Department = { id: string; code: string; name: string };
@@ -67,6 +68,8 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
     .map(item => item.role));
   const canEnrollment = scopedRoles.has('CATEGORY_1') || scopedRoles.has('CENTRAL_ADMIN');
   const canDelivery = scopedRoles.has('CATEGORY_2') || scopedRoles.has('CENTRAL_ADMIN');
+  const canManageCorrectionReasons = canEnrollment;
+  const canReadCorrectionReasons = canManageCorrectionReasons || canDelivery;
 
   const load = useCallback(async (keepSchool = true, requestedSchoolId?: string) => {
     if (!supabase) { setError('La connexion Supabase est indisponible.'); setLoading(false); return; }
@@ -202,7 +205,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
       deliveredInitial, deliveredRatissage, deliveredCorrection, reprints, delivered,
       enrollmentRemaining: capacity - enrolled, deliveryRemaining: enrolled - delivered,
       deliveryRate: enrolled ? delivered / enrolled * 100 : 0, hasReport: !!report };
-  }), [groups, reportByGroup, operations, promotionById, latestDeliveryCorrectionByReport]);
+  }).sort((a, b) => (a.promotion?.label ?? a.promotion?.code ?? '').localeCompare((b.promotion?.label ?? b.promotion?.code ?? ''), 'fr', { numeric: true, sensitivity: 'base' })), [groups, reportByGroup, operations, promotionById, latestDeliveryCorrectionByReport]);
 
   const selectedReport = selectedGroup ? reportByGroup.get(selectedGroup) : undefined;
   const hasInitialReport = !!selectedReport;
@@ -343,7 +346,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
   return <div className="report-app">
     <aside className="report-sidebar">
       <div className="report-brand"><GraduationCap/><b>Rapports<br/>Scolaires</b></div>
-      <nav><a className="active"><Activity/> Tableau de bord</a><a href="#collecte"><ClipboardList/> Collecte des données</a><a href="#classes"><BookOpen/> Suivi par classes</a><a href="#historique"><History/> Historique des opérations</a><a href="#bordereaux"><Truck/> Bordereaux de livraison</a></nav>
+      <nav><a className="active"><Activity/> Tableau de bord</a><a href="#collecte"><ClipboardList/> Collecte des données</a><a href="#classes"><BookOpen/> Suivi par classes</a><a href="#historique"><History/> Historique des opérations</a><a href="#bordereaux"><Truck/> Bordereaux de livraison</a>{canReadCorrectionReasons && <a href="#motifs-modification"><BookOpen/> Motifs de modification</a>}</nav>
       <div className="report-user"><div className="report-avatar"><Users/></div><span>Agent de collecte</span><button onClick={onSignOut} title="Se déconnecter"><LogOut/></button></div>
     </aside>
     <main className="report-main">
@@ -382,7 +385,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
           </section>
           <section className="report-panel report-classes" id="classes"><h3>Détail par classe <small>Suivi complet et partagé</small></h3>
             <div className="report-table-wrap"><table><thead><tr><th>Classe / groupe</th><th>Effectif</th><th>Initial</th><th>Ratissage</th><th>Correction</th><th>Total enrôlé</th><th>Livré initial</th><th>Livré ratissage</th><th>Livré correction</th><th>Total livré</th><th>Reste enrôler</th><th>Reste livrer</th><th>Taux livraison</th></tr></thead><tbody>
-              {rows.map(r => <tr key={r.group.id}><td><b>{r.promotion?.label ?? r.promotion?.code ?? '—'}</b><small>{r.group.group_code}</small></td><td>{fmt(r.capacity)}</td><td>{fmt(r.initial)}</td><td>{fmt(r.ratissage)}</td><td>{fmt(r.correction)}</td><td className="good">{fmt(r.enrolled)}</td><td>{fmt(r.deliveredInitial)}</td><td>{fmt(r.deliveredRatissage)}</td><td>{fmt(r.deliveredCorrection)}</td><td className="good">{fmt(r.delivered)}</td><td>{fmt(r.enrollmentRemaining)}</td><td className={r.deliveryRemaining < 0 ? 'bad' : ''}>{fmt(r.deliveryRemaining)}</td><td>{r.enrolled ? `${r.deliveryRate.toFixed(1)} %` : '—'}</td></tr>)}
+              {rows.map(r => <tr key={r.group.id}><td><b>{r.promotion?.label ?? r.promotion?.code ?? '—'}</b></td><td>{fmt(r.capacity)}</td><td>{fmt(r.initial)}</td><td>{fmt(r.ratissage)}</td><td>{fmt(r.correction)}</td><td className="good">{fmt(r.enrolled)}</td><td>{fmt(r.deliveredInitial)}</td><td>{fmt(r.deliveredRatissage)}</td><td>{fmt(r.deliveredCorrection)}</td><td className="good">{fmt(r.delivered)}</td><td>{fmt(r.enrollmentRemaining)}</td><td className={r.deliveryRemaining < 0 ? 'bad' : ''}>{fmt(r.deliveryRemaining)}</td><td>{r.enrolled ? `${r.deliveryRate.toFixed(1)} %` : '—'}</td></tr>)}
               <tr className="report-total"><td>Total</td><td>{fmt(totals.capacity)}</td><td>{fmt(totals.initial)}</td><td>{fmt(totals.ratissage)}</td><td>{fmt(totals.correction)}</td><td>{fmt(totals.enrolled)}</td><td>{fmt(totals.deliveredInitial)}</td><td>{fmt(totals.deliveredRatissage)}</td><td>{fmt(totals.deliveredCorrection)}</td><td>{fmt(totals.delivered)}</td><td>{fmt(totals.enrollmentRemaining)}</td><td>{fmt(totals.deliveryRemaining)}</td><td>{deliveryRate.toFixed(1)} %</td></tr>
             </tbody></table>{rows.length === 0 && <div className="report-empty">Aucune classe n’est encore affectée à cet établissement pour l’année active.</div>}</div>
           </section>
@@ -395,7 +398,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
               </div>}
               {activeEntryCategory === 'CATEGORY_2' && <p className="report-entry-intro">Enregistrez les quantités livrées pour une classe déjà affectée à cet établissement. Les données mettent à jour les mêmes lignes du tableau partagé.</p>}
               <label>{activeEntryCategory === 'CATEGORY_2' ? "Type de livraison" : "Type d’opération"}<select value={entryType} onChange={e => { setEntryType(e.target.value); setEditingInitialDelivery(false); setQuantity(''); setNote(''); }}>{allowedTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
-              <label>Classe<select value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)} required><option value="">Sélectionner une classe</option>{rows.map(r => <option key={r.group.id} value={r.group.id}>{r.promotion?.label ?? r.promotion?.code ?? 'Classe'} · {r.group.group_code}</option>)}</select></label>
+              <label>Classe<select value={selectedGroup} onChange={e => setSelectedGroup(e.target.value)} required><option value="">Sélectionner une classe</option>{rows.map(r => <option key={r.group.id} value={r.group.id}>{r.promotion?.label ?? r.promotion?.code ?? 'Classe'}</option>)}</select></label>
               {entryType === 'DELIVERY_INITIAL' && hasInitialDelivery && !editingInitialDelivery && <div className="report-initial-status"><span>Livraison initiale déjà enregistrée : <b>{fmt(effectiveInitialDelivery)}</b>.</span><button type="button" className="report-edit-button" onClick={() => { setQuantity(String(effectiveInitialDelivery)); setEditingInitialDelivery(true); setNote(''); }}>Modifier</button></div>}
               {entryType === 'INITIAL' ? <>
                 {hasInitialReport && !editingInitial && <div className="report-initial-status"><span>Données initiales déjà enregistrées pour cette classe.</span><button type="button" className="report-edit-button" onClick={() => setEditingInitial(true)}>Modifier</button></div>}
@@ -408,6 +411,11 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
             <article className="report-panel report-history" id="historique"><h3><History/> Dernières opérations</h3>{operations.slice(0,8).map(op => <div className="report-history-row" key={op.id}><span>{operationLabels[op.operation_type] ?? op.operation_type}</span><b>{fmt(op.quantity)}</b><small>{new Date(op.created_at).toLocaleString('fr-FR')}</small></div>)}{operations.length === 0 && <div className="report-empty">Aucune opération enregistrée.</div>}</article>
           </section>
           <section id="bordereaux"><DeliverySlips memberships={memberships}/></section>
+          {canReadCorrectionReasons && <section id="motifs-modification">
+            <Suspense fallback={<div className="report-loading">Chargement des motifs de modification…</div>}>
+              <SchoolCorrectionReasons schoolId={school.id} schoolName={school.name} permissions={{ canRead: true, canCreate: canManageCorrectionReasons, canUpdate: canManageCorrectionReasons, canDelete: canManageCorrectionReasons }}/>
+            </Suspense>
+          </section>}
         </>}
       </>}
     </main>

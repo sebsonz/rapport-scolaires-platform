@@ -487,8 +487,8 @@ AS $$
     'website', o.website,
     'status', o.status
   ) END
-  FROM (SELECT auth.uid() AS user_id) current_user
-  LEFT JOIN public.organization_memberships om ON om.user_id = current_user.user_id
+  FROM (SELECT auth.uid() AS user_id) actor_context
+  LEFT JOIN public.organization_memberships om ON om.user_id = actor_context.user_id
   LEFT JOIN public.organizations o ON o.id = om.organization_id;
 $$;
 
