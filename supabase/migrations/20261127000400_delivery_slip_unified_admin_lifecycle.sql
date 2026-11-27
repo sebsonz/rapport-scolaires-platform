@@ -302,6 +302,12 @@ BEGIN
         AND g.promotion_id=v_promotion AND g.group_code=v_group_code
     ) THEN
       RAISE EXCEPTION 'Le groupe source ne correspond pas à l’établissement, à l’année ou à la promotion';
+    ELSIF v_source_group IS NULL AND NOT EXISTS(
+      SELECT 1 FROM public.pedagogical_groups g
+      WHERE g.school_id=v_slip.school_id AND g.school_year_id=v_slip.school_year_id
+        AND g.promotion_id=v_promotion AND g.group_code=v_group_code
+    ) THEN
+      RAISE EXCEPTION 'Le groupe manuel ne correspond pas à cet établissement et à cette année scolaire';
     END IF;
     IF EXISTS(
       SELECT 1 FROM jsonb_array_elements(p_lines) x
@@ -358,6 +364,9 @@ $$;
 
 REVOKE ALL ON FUNCTION public.admin_update_delivery_slip(uuid,text,date,text,text,jsonb,text) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.admin_update_delivery_slip(uuid,text,date,text,text,jsonb,text) TO authenticated;
+
+-- Disable the legacy draft-delete endpoint: all permanent deletions now use the audited central-admin RPC.
+REVOKE ALL ON FUNCTION public.delete_automatic_delivery_slip(uuid) FROM PUBLIC,anon,authenticated;
 
 -- Permanent deletion is central-admin-only for every status and both creation modes.
 -- Full header + line snapshot is retained in audit_events before cascading deletion.
