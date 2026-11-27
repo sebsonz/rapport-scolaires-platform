@@ -411,7 +411,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
             </form>
             <article className="report-panel report-history" id="historique"><h3><History/> Dernières opérations</h3>{operations.slice(0,8).map(op => <div className="report-history-row" key={op.id}><span>{operationLabels[op.operation_type] ?? op.operation_type}</span><b>{fmt(op.quantity)}</b><small>{new Date(op.created_at).toLocaleString('fr-FR')}</small></div>)}{operations.length === 0 && <div className="report-empty">Aucune opération enregistrée.</div>}</article>
           </section>
-          <section id="bordereaux"><DeliverySlips memberships={memberships}/><AutomaticDeliverySlips memberships={memberships}/></section>
+          <section id="bordereaux"><DeliverySlips memberships={memberships}/>{(memberships.some(item => item.role === 'CENTRAL_ADMIN') || memberships.some(item => item.role === 'CATEGORY_2')) && <AutomaticDeliverySlips memberships={memberships}/>}</section>
           {canReadCorrectionReasons && <section id="motifs-modification">
             <Suspense fallback={<div className="report-loading">Chargement des motifs de modification…</div>}>
               <SchoolCorrectionReasons schoolId={school.id} schoolName={school.name} permissions={{ canRead: true, canCreate: canManageCorrectionReasons, canUpdate: canManageCorrectionReasons, canDelete: canManageCorrectionReasons }}/>
