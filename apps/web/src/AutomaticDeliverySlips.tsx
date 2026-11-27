@@ -148,6 +148,15 @@ export default function AutomaticDeliverySlips({
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  useEffect(() => {
+    if (selectedSlip && !history.some(item => item.id === selectedSlip.id)) {
+      setSelectedSlip(null);
+      setPreviewOpen(false);
+      setSlipLines([]);
+      setIsEditing(false);
+    }
+  }, [history, selectedSlip]);
+
   const availableFor = useCallback((item: Candidate) => item.available_to_slip + (isEditing
     ? slipLines.filter(line => line.source_pedagogical_group_id === item.pedagogical_group_id)
         .reduce((sum, line) => sum + line.quantity_delivered, 0)
