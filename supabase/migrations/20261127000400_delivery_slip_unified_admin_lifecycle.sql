@@ -60,8 +60,109 @@ AS $$
   GROUP BY g.id,g.promotion_id,g.group_code;
 $$;
 
-REVOKE ALL ON FUNCTION public.get_delivery_slip_group_totals(uuid,uuid) FROM PUBLIC,anon;
-GRANT EXECUTE ON FUNCTION public.get_delivery_slip_group_totals(uuid,uuid) TO authenticated;
+REVOKE ALL ON FUNCTION public.get_delivery_slip_group_totals(uuid,uuid) FROM PUBLIC,anon,authenticated;
+
+-- Manual line insertion uses the same active-slip recount and source-group validation.
+CREATE OR REPLACE FUNCTION public.add_delivery_slip_line(
+  p_delivery_slip_id uuid,
+  p_promotion_id uuid,
+  p_group_code text,
+  p_quantity integer
+)
+RETURNS public.delivery_slip_lines
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path=public,auth,pg_temp
+SET row_security=off
+AS $
+DECLARE
+  v_slip public.delivery_slips;
+  v_department uuid;
+  v_group_id uuid;
+  v_delivered bigint;
+  v_already_slipped bigint;
+  v_available bigint;
+  v_result public.delivery_slip_lines;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Authentification requise'; END IF;
+  IF p_quantity IS NULL OR p_quantity<=0 THEN
+    RAISE EXCEPTION 'La quantité doit être un entier strictement positif';
+  END IF;
+  SELECT * INTO v_slip FROM public.delivery_slips
+  WHERE id=p_delivery_slip_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Bordereau introuvable'; END IF;
+  SELECT s.department_id INTO v_department
+  FROM public.schools s WHERE s.id=v_slip.school_id;
+  IF v_department IS NULL OR NOT public.has_department_access(v_department) THEN
+    RAISE EXCEPTION 'Accès au département refusé';
+  END IF;
+  IF v_slip.status<>'DRAFT' THEN
+    RAISE EXCEPTION 'Seul un brouillon peut recevoir des lignes';
+  END IF;
+  IF v_slip.created_by<>auth.uid() AND NOT public.is_central_admin() THEN
+    RAISE EXCEPTION 'Seul le créateur ou un administrateur central peut modifier ce brouillon';
+  END IF;
+
+  SELECT g.id INTO v_group_id
+  FROM public.pedagogical_groups g
+  WHERE g.school_id=v_slip.school_id
+    AND g.school_year_id=v_slip.school_year_id
+    AND g.promotion_id=p_promotion_id
+    AND g.group_code=trim(p_group_code);
+  IF v_group_id IS NULL THEN
+    RAISE EXCEPTION 'Le groupe pédagogique ne correspond pas à cet établissement et à cette année scolaire';
+  END IF;
+
+  SELECT
+    COALESCE(
+      (SELECT c.quantity FROM public.school_report_delivery_initial_corrections c
+       JOIN public.school_reports r ON r.id=c.school_report_id
+       WHERE r.pedagogical_group_id=v_group_id ORDER BY c.created_at DESC LIMIT 1),
+      (SELECT SUM(o.quantity) FROM public.school_report_operations o
+       JOIN public.school_reports r ON r.id=o.school_report_id
+       WHERE r.pedagogical_group_id=v_group_id AND o.operation_type='DELIVERY_INITIAL'),
+      0
+    )
+    + COALESCE(
+      (SELECT SUM(o.quantity) FROM public.school_report_operations o
+       JOIN public.school_reports r ON r.id=o.school_report_id
+       WHERE r.pedagogical_group_id=v_group_id
+         AND o.operation_type IN('DELIVERY_RATISSAGE','DELIVERY_CORRECTION_FIRST_ISSUE')),
+      0
+    )
+  INTO v_delivered;
+
+  SELECT t.already_slipped INTO v_already_slipped
+  FROM public.get_delivery_slip_group_totals(v_slip.school_id,v_slip.school_year_id) t
+  WHERE t.pedagogical_group_id=v_group_id;
+  v_already_slipped:=COALESCE(v_already_slipped,0);
+  v_available:=v_delivered-v_already_slipped;
+  IF v_available<=0 THEN
+    RAISE EXCEPTION 'Aucune quantité disponible pour ce groupe (livré %, déjà bordereauté %)',v_delivered,v_already_slipped;
+  END IF;
+  IF p_quantity>v_available THEN
+    RAISE EXCEPTION 'Quantité supérieure au disponible : % demandé, % disponible',p_quantity,v_available;
+  END IF;
+
+  INSERT INTO public.delivery_slip_lines(
+    delivery_slip_id,promotion_id,group_code,quantity_delivered
+  ) VALUES(
+    v_slip.id,p_promotion_id,trim(p_group_code),p_quantity
+  ) RETURNING * INTO v_result;
+
+  INSERT INTO public.audit_events(
+    actor_user_id,department_id,school_id,event_type,entity_table,record_id,details
+  ) VALUES(
+    auth.uid(),v_department,v_slip.school_id,'DELIVERY_SLIP_LINE_ADDED',
+    'delivery_slip_lines',v_result.id::text,
+    jsonb_build_object('promotion_id',p_promotion_id,'group_code',trim(p_group_code),
+      'quantity',p_quantity,'available_before',v_available)
+  );
+  RETURN v_result;
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.add_delivery_slip_line(uuid,uuid,text,integer) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.add_delivery_slip_line(uuid,uuid,text,integer) TO authenticated;
 
 -- Rebuild candidate RPC around the canonical recount helper. Legacy manual lines
 -- (source_pedagogical_group_id IS NULL) are matched by promotion + group code.
