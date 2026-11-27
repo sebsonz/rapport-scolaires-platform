@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   AlertTriangle, BadgeCheck, CheckCircle2, ChevronDown, ChevronRight, Eye, Pencil, Printer,
-  RefreshCw, Send, Trash2, Truck,
+  RefreshCw, Send, Truck,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './AutomaticDeliverySlips.css';
+import DeliverySlipAdminTools from './DeliverySlipAdminTools';
 
 type Membership = { department_id: string | null; role: 'CENTRAL_ADMIN' | 'CATEGORY_1' | 'CATEGORY_2' };
 type School = { id: string; department_id: string; code: string; name: string };
@@ -16,14 +17,14 @@ type Candidate = {
 };
 type Slip = {
   id: string; school_id: string; school_year_id: string; slip_number: string;
-  delivery_date: string; status: 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'CANCELLED';
+  delivery_date: string; status: 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'CANCELLED' | 'ARCHIVED';
   observations: string | null; responsible_agent: string | null;
   creator_full_name: string | null; organization_snapshot: Record<string, unknown> | null;
 };
 type SlipLine = { id: string; promotion_id: string; group_code: string; quantity_delivered: number; source_pedagogical_group_id: string | null };
 
 const statusLabels: Record<Slip['status'], string> = {
-  DRAFT: 'Brouillon', SUBMITTED: 'Soumis', VALIDATED: 'Validé', CANCELLED: 'Annulé',
+  DRAFT: 'Brouillon', SUBMITTED: 'Soumis', VALIDATED: 'Validé', CANCELLED: 'Annulé', ARCHIVED: 'Archivé',
 };
 const classLabel = (label: string, code: string) =>
   code.trim().toUpperCase() === 'UNIQUE'
@@ -147,6 +148,15 @@ export default function AutomaticDeliverySlips({
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  useEffect(() => {
+    if (selectedSlip && !history.some(item => item.id === selectedSlip.id)) {
+      setSelectedSlip(null);
+      setPreviewOpen(false);
+      setSlipLines([]);
+      setIsEditing(false);
+    }
+  }, [history, selectedSlip]);
+
   const availableFor = useCallback((item: Candidate) => item.available_to_slip + (isEditing
     ? slipLines.filter(line => line.source_pedagogical_group_id === item.pedagogical_group_id)
         .reduce((sum, line) => sum + line.quantity_delivered, 0)
@@ -232,23 +242,6 @@ export default function AutomaticDeliverySlips({
     setIsEditing(true);
   }
 
-  async function removeSlip(slip: Slip) {
-    if (!supabase || !window.confirm(`Supprimer définitivement le brouillon « ${slip.slip_number} » ? Cette action est irréversible.`)) return;
-    setBusy(true);
-    const { error: deleteError } = await supabase.rpc('delete_automatic_delivery_slip', {
-      p_delivery_slip_id: slip.id,
-    });
-    setBusy(false);
-    if (deleteError) { setError(deleteError.message); return; }
-    if (selectedSlip?.id === slip.id) {
-      setSelectedSlip(null);
-      setPreviewOpen(false);
-      setSlipLines([]);
-      setIsEditing(false);
-    }
-    setNotice('Brouillon supprimé.');
-    await refresh();
-  }
 
   async function submitSlip(slip: Slip) {
     if (!supabase || !window.confirm(`Soumettre le bordereau « ${slip.slip_number} » à l’administration centrale ?`)) return;
@@ -408,7 +401,6 @@ export default function AutomaticDeliverySlips({
                       <button type="button" title="Aperçu" aria-label="Aperçu" onClick={() => void openSlip(item, true)}><Eye size={14}/> Aperçu</button>
                       {item.status === 'DRAFT' && <>
                         <button type="button" title="Modifier" aria-label="Modifier" onClick={() => void beginEdit(item)}><Pencil size={14}/> Modifier</button>
-                        <button type="button" className="danger" title="Supprimer" aria-label="Supprimer" onClick={() => void removeSlip(item)}><Trash2 size={14}/> Supprimer</button>
                         <button type="button" onClick={() => void submitSlip(item)}><Send size={14}/> Soumettre</button>
                       </>}
                       {item.status === 'SUBMITTED' && isAdmin && <button type="button" onClick={() => void validateSlip(item)}><BadgeCheck size={14}/> Valider</button>}
@@ -463,6 +455,7 @@ export default function AutomaticDeliverySlips({
           </div>
         </section>
       )}
+      {selectedSlip && <DeliverySlipAdminTools slip={selectedSlip} lines={slipLines} isAdmin={isAdmin} onRefresh={refresh} />}
     </div>
   );
 }
