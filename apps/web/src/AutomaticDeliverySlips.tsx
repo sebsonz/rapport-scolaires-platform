@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './AutomaticDeliverySlips.css';
+import DeliverySlipAdminTools from './DeliverySlipAdminTools';
 
 type Membership = { department_id: string | null; role: 'CENTRAL_ADMIN' | 'CATEGORY_1' | 'CATEGORY_2' };
 type School = { id: string; department_id: string; code: string; name: string };
@@ -16,14 +17,14 @@ type Candidate = {
 };
 type Slip = {
   id: string; school_id: string; school_year_id: string; slip_number: string;
-  delivery_date: string; status: 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'CANCELLED';
+  delivery_date: string; status: 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'CANCELLED' | 'ARCHIVED';
   observations: string | null; responsible_agent: string | null;
   creator_full_name: string | null; organization_snapshot: Record<string, unknown> | null;
 };
 type SlipLine = { id: string; promotion_id: string; group_code: string; quantity_delivered: number; source_pedagogical_group_id: string | null };
 
 const statusLabels: Record<Slip['status'], string> = {
-  DRAFT: 'Brouillon', SUBMITTED: 'Soumis', VALIDATED: 'Validé', CANCELLED: 'Annulé',
+  DRAFT: 'Brouillon', SUBMITTED: 'Soumis', VALIDATED: 'Validé', CANCELLED: 'Annulé', ARCHIVED: 'Archivé',
 };
 const classLabel = (label: string, code: string) =>
   code.trim().toUpperCase() === 'UNIQUE'
@@ -463,6 +464,7 @@ export default function AutomaticDeliverySlips({
           </div>
         </section>
       )}
+      {selectedSlip && <DeliverySlipAdminTools slip={selectedSlip} lines={slipLines} isAdmin={isAdmin} onRefresh={refresh} />}
     </div>
   );
 }
