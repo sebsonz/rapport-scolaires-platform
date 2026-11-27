@@ -287,4 +287,45 @@ $$;
 REVOKE ALL ON FUNCTION public.delete_automatic_delivery_slip(uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.delete_automatic_delivery_slip(uuid) TO authenticated;
 
+
+-- Dedicated validation endpoint for this module. Only a central administrator
+-- can validate, and only after an explicit submission. This does not change the
+-- legacy manual validation workflow.
+CREATE OR REPLACE FUNCTION public.validate_automatic_delivery_slip(
+ p_delivery_slip_id uuid
+) RETURNS public.delivery_slips
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path=public,auth,pg_temp
+SET row_security=off
+AS $
+DECLARE
+ v_slip public.delivery_slips;
+ v_department uuid;
+BEGIN
+ IF auth.uid() IS NULL OR NOT public.is_central_admin() THEN
+   RAISE EXCEPTION 'Seule l’administration centrale peut valider un bordereau';
+ END IF;
+ SELECT * INTO v_slip FROM public.delivery_slips
+ WHERE id=p_delivery_slip_id FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Bordereau introuvable'; END IF;
+ IF v_slip.creation_mode<>'AUTOMATIC' THEN
+   RAISE EXCEPTION 'Ce bordereau ne relève pas de ce circuit de validation';
+ END IF;
+ IF v_slip.status<>'SUBMITTED' THEN
+   RAISE EXCEPTION 'Seul un bordereau soumis peut être validé';
+ END IF;
+ SELECT department_id INTO v_department FROM public.schools WHERE id=v_slip.school_id;
+ UPDATE public.delivery_slips
+ SET status='VALIDATED',validated_by=auth.uid(),validated_at=now()
+ WHERE id=v_slip.id RETURNING * INTO v_slip;
+ INSERT INTO public.audit_events(actor_user_id,department_id,school_id,event_type,entity_table,record_id,details)
+ VALUES(auth.uid(),v_department,v_slip.school_id,'AUTOMATIC_DELIVERY_SLIP_VALIDATED',
+   'delivery_slips',v_slip.id::text,
+   jsonb_build_object('slip_number',v_slip.slip_number,'status',v_slip.status));
+ RETURN v_slip;
+END;
+$;
+REVOKE ALL ON FUNCTION public.validate_automatic_delivery_slip(uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.validate_automatic_delivery_slip(uuid) TO authenticated;
+
 COMMIT;
