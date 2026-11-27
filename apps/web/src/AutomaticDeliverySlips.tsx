@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   AlertTriangle, BadgeCheck, CheckCircle2, ChevronDown, ChevronRight, Eye, Pencil, Printer,
-  RefreshCw, Send, Trash2, Truck,
+  RefreshCw, Send, Truck,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './AutomaticDeliverySlips.css';
@@ -233,23 +233,6 @@ export default function AutomaticDeliverySlips({
     setIsEditing(true);
   }
 
-  async function removeSlip(slip: Slip) {
-    if (!supabase || !window.confirm(`Supprimer définitivement le brouillon « ${slip.slip_number} » ? Cette action est irréversible.`)) return;
-    setBusy(true);
-    const { error: deleteError } = await supabase.rpc('delete_automatic_delivery_slip', {
-      p_delivery_slip_id: slip.id,
-    });
-    setBusy(false);
-    if (deleteError) { setError(deleteError.message); return; }
-    if (selectedSlip?.id === slip.id) {
-      setSelectedSlip(null);
-      setPreviewOpen(false);
-      setSlipLines([]);
-      setIsEditing(false);
-    }
-    setNotice('Brouillon supprimé.');
-    await refresh();
-  }
 
   async function submitSlip(slip: Slip) {
     if (!supabase || !window.confirm(`Soumettre le bordereau « ${slip.slip_number} » à l’administration centrale ?`)) return;
@@ -409,7 +392,6 @@ export default function AutomaticDeliverySlips({
                       <button type="button" title="Aperçu" aria-label="Aperçu" onClick={() => void openSlip(item, true)}><Eye size={14}/> Aperçu</button>
                       {item.status === 'DRAFT' && <>
                         <button type="button" title="Modifier" aria-label="Modifier" onClick={() => void beginEdit(item)}><Pencil size={14}/> Modifier</button>
-                        <button type="button" className="danger" title="Supprimer" aria-label="Supprimer" onClick={() => void removeSlip(item)}><Trash2 size={14}/> Supprimer</button>
                         <button type="button" onClick={() => void submitSlip(item)}><Send size={14}/> Soumettre</button>
                       </>}
                       {item.status === 'SUBMITTED' && isAdmin && <button type="button" onClick={() => void validateSlip(item)}><BadgeCheck size={14}/> Valider</button>}
