@@ -227,7 +227,11 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
   const printSlip = () => window.print();
 
   return <div className="delivery-module">
-    <div className="delivery-heading"><div><span className="delivery-eyebrow">GESTION DOCUMENTAIRE</span><h2><Truck/> Bordereaux de livraison</h2><p>Création, suivi, soumission et impression des bordereaux officiels.</p></div><button type="button" className="delivery-secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={15}/> Actualiser</button></div>
+    <div className="delivery-legacy-refresh">
+      <button type="button" className="delivery-secondary" onClick={() => void load()} disabled={loading}>
+        <RefreshCw size={15}/> Actualiser
+      </button>
+    </div>
     {error && <div className="delivery-alert error">{error}</div>}
     {notice && <div className="delivery-alert success"><CheckCircle2 size={16}/>{notice}</div>}
     <div className="delivery-layout">
