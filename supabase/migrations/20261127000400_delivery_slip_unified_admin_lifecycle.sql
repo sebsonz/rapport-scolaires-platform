@@ -504,7 +504,13 @@ BEGIN
     auth.uid(),v_department,v_slip.school_id,'DELIVERY_SLIP_ADMIN_CORRECTED',
     'delivery_slips',v_slip.id::text,
     jsonb_build_object('reason',trim(p_reason),'previous',v_before,
-      'new_status',v_slip.status::text,'new_line_count',v_count)
+      'new_status',v_slip.status::text,'new_line_count',v_count,
+      'new_lines',(SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'promotion_id',l.promotion_id,'group_code',l.group_code,
+        'quantity_delivered',l.quantity_delivered,
+        'source_pedagogical_group_id',l.source_pedagogical_group_id
+      ) ORDER BY l.created_at),'[]'::jsonb)
+      FROM public.delivery_slip_lines l WHERE l.delivery_slip_id=v_slip.id))
   );
   RETURN v_slip;
 END;
