@@ -58,6 +58,7 @@ export default function AutomaticDeliverySlips({
   const [notice, setNotice] = useState('');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const requestRef = useRef(0);
+  const slipRequestRef = useRef(0);
 
   const school = schools.find(item => item.id === schoolId);
   const canGenerate = !!school && (isAdmin || memberships.some(
@@ -134,6 +135,7 @@ export default function AutomaticDeliverySlips({
   }, []);
 
   useEffect(() => {
+    slipRequestRef.current += 1;
     setSelectedSlip(null);
     setSlipLines([]);
     setError('');
@@ -153,12 +155,14 @@ export default function AutomaticDeliverySlips({
 
   async function openSlip(slip: Slip) {
     if (!supabase) return;
+    const requestId = ++slipRequestRef.current;
     setSelectedSlip(slip);
     const { data, error: queryError } = await supabase
       .from('delivery_slip_lines')
       .select('id,promotion_id,group_code,quantity_delivered')
       .eq('delivery_slip_id', slip.id)
       .order('created_at');
+    if (requestId !== slipRequestRef.current) return;
     if (queryError) {
       setError(queryError.message);
       setSlipLines([]);
