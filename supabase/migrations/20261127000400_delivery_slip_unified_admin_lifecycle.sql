@@ -348,6 +348,9 @@ DECLARE
   v_group_code text;
   v_quantity integer;
   v_source_group uuid;
+  v_group_id uuid;
+  v_delivered bigint;
+  v_other_slipped bigint;
   v_count integer:=0;
   v_before jsonb;
 BEGIN
@@ -410,6 +413,50 @@ BEGIN
     ) THEN
       RAISE EXCEPTION 'Le groupe manuel ne correspond pas à cet établissement et à cette année scolaire';
     END IF;
+    SELECT g.id INTO v_group_id
+    FROM public.pedagogical_groups g
+    WHERE g.school_id=v_slip.school_id AND g.school_year_id=v_slip.school_year_id
+      AND g.promotion_id=v_promotion AND g.group_code=v_group_code
+      AND (v_source_group IS NULL OR g.id=v_source_group)
+    LIMIT 1;
+    IF v_group_id IS NULL THEN
+      RAISE EXCEPTION 'Groupe pédagogique introuvable pour ce bordereau';
+    END IF;
+
+    IF v_slip.status=ANY(public.delivery_slip_active_statuses()) THEN
+      SELECT
+        COALESCE(
+          (SELECT c.quantity FROM public.school_report_delivery_initial_corrections c
+           JOIN public.school_reports r ON r.id=c.school_report_id
+           WHERE r.pedagogical_group_id=v_group_id ORDER BY c.created_at DESC LIMIT 1),
+          (SELECT SUM(o.quantity) FROM public.school_report_operations o
+           JOIN public.school_reports r ON r.id=o.school_report_id
+           WHERE r.pedagogical_group_id=v_group_id AND o.operation_type='DELIVERY_INITIAL'),
+          0
+        )
+        + COALESCE(
+          (SELECT SUM(o.quantity) FROM public.school_report_operations o
+           JOIN public.school_reports r ON r.id=o.school_report_id
+           WHERE r.pedagogical_group_id=v_group_id
+             AND o.operation_type IN('DELIVERY_RATISSAGE','DELIVERY_CORRECTION_FIRST_ISSUE')),
+          0
+        )
+      INTO v_delivered;
+      SELECT COALESCE(SUM(l.quantity_delivered),0)::bigint INTO v_other_slipped
+      FROM public.delivery_slip_lines l
+      JOIN public.delivery_slips d ON d.id=l.delivery_slip_id
+      WHERE d.school_id=v_slip.school_id AND d.school_year_id=v_slip.school_year_id
+        AND d.status=ANY(public.delivery_slip_active_statuses())
+        AND d.id<>v_slip.id
+        AND (l.source_pedagogical_group_id=v_group_id
+          OR (l.source_pedagogical_group_id IS NULL
+            AND l.promotion_id=v_promotion AND l.group_code=v_group_code));
+      IF v_quantity>GREATEST(0,v_delivered-COALESCE(v_other_slipped,0)) THEN
+        RAISE EXCEPTION 'Quantité corrigée supérieure au disponible pour % : % demandé, % disponible',
+          v_group_code,v_quantity,GREATEST(0,v_delivered-COALESCE(v_other_slipped,0));
+      END IF;
+    END IF;
+
     IF EXISTS(
       SELECT 1 FROM jsonb_array_elements(p_lines) x
       WHERE x.value->>'promotion_id'=v_promotion::text
