@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { CheckCircle2, ChevronDown, ChevronUp, FilePlus2, Printer, RefreshCw, Send, ShieldCheck } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './DeliverySlips.css';
@@ -58,7 +58,7 @@ function publicLogo(path: unknown) {
   return supabase.storage.from('organization-logos').getPublicUrl(path).data.publicUrl;
 }
 
-export default function DeliverySlips({ memberships }: { memberships: Membership[] }) {
+export default function DeliverySlips({ memberships, selectedSchoolId, onSchoolChange }: {\n  memberships: Membership[];\n  selectedSchoolId: string;\n  onSchoolChange: (schoolId: string) => void;\n}) {
   const isAdmin = memberships.some(item => item.role === 'CENTRAL_ADMIN');
   const [schools, setSchools] = useState<School[]>([]);
   const [currentUserId, setCurrentUserId] = useState('');
@@ -115,7 +115,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
     const slipResult = await supabase.from('delivery_slips')
       .select('id,school_id,school_year_id,slip_number,delivery_date,status,observations,responsible_agent,created_by,creator_role,creator_full_name,validated_by,validated_at,organization_snapshot')
       .eq('school_id', nextSchoolId).order('created_at', { ascending: false });
-    if (slipResult.error) { setError(slipResult.error.message); setLoading(false); return; }
+    if (requestId !== loadRequestRef.current) return;\n    if (slipResult.error) { setError(slipResult.error.message); setLoading(false); return; }
     const nextSlips = (slipResult.data ?? []) as Slip[];
     setSlips(nextSlips);
     const nextSelected = nextSlips.some(item => item.id === selectedSlipId) ? selectedSlipId : nextSlips[0]?.id ?? '';
@@ -127,14 +127,14 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
       nextSelected ? supabase.from('delivery_slip_lines').select('id,delivery_slip_id,promotion_id,group_code,quantity_delivered')
         .eq('delivery_slip_id', nextSelected).order('created_at') : Promise.resolve({ data: [], error: null }),
     ]);
-    if (groupResult.error || lineResult.error) {
+    if (requestId !== loadRequestRef.current) return;\n    if (groupResult.error || lineResult.error) {
       setError(groupResult.error?.message ?? lineResult.error?.message ?? 'Impossible de charger les lignes du bordereau.');
       setLoading(false); return;
     }
     setGroups((groupResult.data ?? []) as PedagogicalGroup[]);
     setLines((lineResult.data ?? []) as Line[]);
     setLoading(false);
-  }, [schoolId, selectedSlipId]);
+  }, [schoolId, selectedSlipId, onSchoolChange]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -255,7 +255,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
       <section className="delivery-panel">
         <h3><FilePlus2 size={17}/> Nouveau bordereau</h3>
         <form className="delivery-form" onSubmit={createSlip}>
-          <label>Établissement<select required value={schoolId} onChange={event => setSchoolId(event.target.value)}><option value="">Choisir un établissement</option>{schools.map(item => <option key={item.id} value={item.id}>{item.name} · {item.code}</option>)}</select></label>
+          <label>Établissement<select required value={schoolId} onChange={event => onSchoolChange(event.target.value)}><option value="">Choisir un établissement</option>{schools.map(item => <option key={item.id} value={item.id}>{item.name} · {item.code}</option>)}</select></label>
           <label>Année scolaire<input value={year?.label ?? 'Aucune année active'} readOnly/></label>
           <label>Rôle émetteur<select value={creatorRole} onChange={event => setCreatorRole(event.target.value as typeof creatorRole)} disabled={availableRoles.length <= 1}><option value="CENTRAL_ADMIN">Administration centrale</option><option value="CATEGORY_1">Catégorie 1</option><option value="CATEGORY_2">Catégorie 2</option></select></label>
           <label>Numéro du bordereau<input value={number} onChange={event => setNumber(event.target.value)} required maxLength={60} placeholder="Ex. BOR-2026-001"/></label>
