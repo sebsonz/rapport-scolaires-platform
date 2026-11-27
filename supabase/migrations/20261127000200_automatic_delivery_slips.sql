@@ -84,6 +84,12 @@ BEGIN
   END IF;
  END LOOP;
  IF v_count=0 THEN RAISE EXCEPTION 'Aucune nouvelle quantité à bordereauter dans les classes sélectionnées'; END IF;
+ IF v_role='CATEGORY_2' THEN
+  SELECT * INTO v_slip FROM public.submit_delivery_slip(v_slip.id);
+ ELSE
+  UPDATE public.delivery_slips SET status='VALIDATED',validated_by=auth.uid(),validated_at=now()
+  WHERE id=v_slip.id RETURNING * INTO v_slip;
+ END IF;
  INSERT INTO public.audit_events(actor_user_id,department_id,school_id,event_type,entity_table,record_id,details)
  VALUES(auth.uid(),v_department,p_school_id,'AUTOMATIC_DELIVERY_SLIP_GENERATED','delivery_slips',v_slip.id::text,
  jsonb_build_object('slip_number',v_slip.slip_number,'selected_groups',p_group_ids,'line_count',v_count,'creation_mode','AUTOMATIC'));
