@@ -185,15 +185,25 @@ export default function AutomaticDeliverySlips({
     setBusy(true);
     setError('');
     setNotice('');
-    const rpcName = isEditing ? 'update_automatic_delivery_slip' : 'create_automatic_delivery_slip';
-    const rpcArgs = isEditing && selectedSlip
-      ? { p_delivery_slip_id: selectedSlip.id, p_slip_number: number.trim(), p_delivery_date: date,
-          p_group_ids: selectedIds, p_observations: observations.trim() || null,
-          p_responsible_agent: agent.trim() || null }
-      : { p_school_id: schoolId, p_school_year_id: year.id, p_slip_number: number.trim(),
-          p_delivery_date: date, p_group_ids: selectedIds,
-          p_observations: observations.trim() || null, p_responsible_agent: agent.trim() || null };
-    const { data, error: createError } = await supabase.rpc(rpcName, rpcArgs);
+    const result = isEditing && selectedSlip
+      ? await supabase.rpc('update_automatic_delivery_slip', {
+          p_delivery_slip_id: selectedSlip.id,
+          p_slip_number: number.trim(),
+          p_delivery_date: date,
+          p_group_ids: selectedIds,
+          p_observations: observations.trim() || null,
+          p_responsible_agent: agent.trim() || null,
+        })
+      : await supabase.rpc('create_automatic_delivery_slip', {
+          p_school_id: schoolId,
+          p_school_year_id: year.id,
+          p_slip_number: number.trim(),
+          p_delivery_date: date,
+          p_group_ids: selectedIds,
+          p_observations: observations.trim() || null,
+          p_responsible_agent: agent.trim() || null,
+        });
+    const { data, error: createError } = result;
     setBusy(false);
     if (createError) {
       setError(createError.message);
