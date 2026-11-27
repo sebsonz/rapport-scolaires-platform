@@ -39,7 +39,7 @@ AS $$
     g.id,
     g.promotion_id,
     g.group_code,
-    COALESCE(SUM(l.quantity_delivered),0)::bigint
+    COALESCE(SUM(CASE WHEN d.id IS NOT NULL THEN l.quantity_delivered ELSE 0 END),0)::bigint
   FROM public.pedagogical_groups g
   LEFT JOIN public.delivery_slip_lines l
     ON (
