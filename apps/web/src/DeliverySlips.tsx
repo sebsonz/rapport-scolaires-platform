@@ -71,7 +71,8 @@ export default function DeliverySlips({ memberships, selectedSchoolId, onSchoolC
   const [groups, setGroups] = useState<PedagogicalGroup[]>([]);
   const [slips, setSlips] = useState<Slip[]>([]);
   const [lines, setLines] = useState<Line[]>([]);
-  const [schoolId, setSchoolId] = useState('');
+  const schoolId = selectedSchoolId;
+  const loadRequestRef = useRef(0);
   const [selectedSlipId, setSelectedSlipId] = useState('');
   const [creatorRole, setCreatorRole] = useState<'CATEGORY_1' | 'CATEGORY_2' | 'CENTRAL_ADMIN'>(isAdmin ? 'CENTRAL_ADMIN' : 'CATEGORY_1');
   const [number, setNumber] = useState('');
@@ -99,19 +100,22 @@ export default function DeliverySlips({ memberships, selectedSchoolId, onSchoolC
 
   const load = useCallback(async () => {
     if (!supabase) { setError('La connexion Supabase est indisponible.'); setLoading(false); return; }
+    const requestId = ++loadRequestRef.current;
     setLoading(true); setError('');
+    setSlips([]); setLines([]); setGroups([]);
     const [schoolResult, yearResult, promotionResult] = await Promise.all([
       supabase.from('schools').select('id,department_id,code,name').eq('is_active', true).order('name'),
       supabase.from('school_years').select('id,label,code').eq('is_active', true).limit(1).maybeSingle(),
       supabase.from('promotions').select('id,label,code').eq('is_active', true).order('display_order').order('label'),
     ]);
+    if (requestId !== loadRequestRef.current) return;
     const firstError = schoolResult.error ?? yearResult.error ?? promotionResult.error;
     if (firstError) { setError(firstError.message); setLoading(false); return; }
     const nextSchools = (schoolResult.data ?? []) as School[];
     const nextYear = yearResult.data as Year | null;
     setSchools(nextSchools); setYear(nextYear); setPromotions((promotionResult.data ?? []) as Promotion[]);
     const nextSchoolId = nextSchools.some(item => item.id === schoolId) ? schoolId : nextSchools[0]?.id ?? '';
-    setSchoolId(nextSchoolId);
+    if (nextSchoolId !== schoolId) onSchoolChange(nextSchoolId);
     if (!nextSchoolId || !nextYear) {
       setGroups([]); setSlips([]); setLines([]); setLoading(false); return;
     }
