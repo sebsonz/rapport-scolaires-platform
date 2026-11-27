@@ -297,7 +297,7 @@ CREATE OR REPLACE FUNCTION public.validate_automatic_delivery_slip(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path=public,auth,pg_temp
 SET row_security=off
-AS $
+AS $$
 DECLARE
  v_slip public.delivery_slips;
  v_department uuid;
@@ -324,7 +324,7 @@ BEGIN
    jsonb_build_object('slip_number',v_slip.slip_number,'status',v_slip.status));
  RETURN v_slip;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.validate_automatic_delivery_slip(uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.validate_automatic_delivery_slip(uuid) TO authenticated;
 
