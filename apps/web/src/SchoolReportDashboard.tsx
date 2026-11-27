@@ -315,7 +315,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
     } finally { setBusy(false); }
   }
 
-  function handleDeliverySlipSchoolChange(nextSchoolId: string) {
+  const handleDeliverySlipSchoolChange = useCallback((nextSchoolId: string) => {
     const nextSchool = schools.find(item => item.id === nextSchoolId);
     if (!nextSchool || nextSchool.id === schoolIdRef.current) return;
     schoolIdRef.current = nextSchool.id;
@@ -331,7 +331,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
     setNotice('');
     setError('');
     void load(true, nextSchool.id);
-  }
+  }, [schools, load]);
   const fmt = (value: number) => value.toLocaleString('fr-FR');
   const enrollmentRate = totals.capacity ? totals.enrolled / totals.capacity * 100 : 0;
   const deliveryRate = totals.enrolled ? totals.delivered / totals.enrolled * 100 : 0;
