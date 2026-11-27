@@ -152,7 +152,6 @@ DECLARE
  v_requested integer;
  v_found integer:=0;
  v_candidate record;
- v_existing bigint;
  v_available bigint;
  v_line_count integer:=0;
 BEGIN
@@ -193,17 +192,18 @@ BEGIN
    AND g.school_year_id=v_slip.school_year_id
  ORDER BY r.id FOR UPDATE OF r;
 
+ -- Remove this draft's previous lines first. The candidate RPC then recalculates
+ -- remaining quantities without counting the document being edited.
+ DELETE FROM public.delivery_slip_lines
+ WHERE delivery_slip_id=v_slip.id AND source_pedagogical_group_id IS NOT NULL;
+
  FOR v_candidate IN
    SELECT c.* FROM public.get_automatic_delivery_slip_candidates(
      v_slip.school_id,v_slip.school_year_id
    ) c
    WHERE c.pedagogical_group_id=ANY(p_group_ids)
  LOOP
-   SELECT COALESCE(SUM(l.quantity_delivered),0)::bigint INTO v_existing
-   FROM public.delivery_slip_lines l
-   WHERE l.delivery_slip_id=v_slip.id
-     AND l.source_pedagogical_group_id=v_candidate.pedagogical_group_id;
-   v_available:=v_candidate.available_to_slip+v_existing;
+   v_available:=v_candidate.available_to_slip;
    IF v_available<0 THEN
      RAISE EXCEPTION 'Anomalie sur la classe % : quantité disponible négative',v_candidate.group_code;
    END IF;
@@ -221,10 +221,6 @@ BEGIN
    RAISE EXCEPTION 'Une ou plusieurs classes sélectionnées sont indisponibles pour cet établissement';
  END IF;
  IF v_line_count=0 THEN RAISE EXCEPTION 'Aucune quantité disponible pour les classes sélectionnées'; END IF;
-
- DELETE FROM public.delivery_slip_lines
- WHERE delivery_slip_id=v_slip.id
-   AND source_pedagogical_group_id IS NOT NULL;
 
  UPDATE public.delivery_slips
  SET slip_number=trim(p_slip_number),
