@@ -109,3 +109,10 @@
 .automatic-delivery-row-actions button.danger{color:#b42318;border-color:#f1d0cc}
 .automatic-delivery-row-actions button.danger:hover{background:#fff1ef;border-color:#e8b8b1}
 .automatic-delivery-row-actions button:disabled{opacity:.5;cursor:not-allowed}
+
+/* The selected document is a real on-screen preview; print mode reuses it. */
+.automatic-delivery-module .automatic-delivery-print-document{
+  display:block;
+  margin-top:14px;
+  background:#fff;
+}
