@@ -45,3 +45,67 @@
  .automatic-delivery-module{max-height:none;overflow:visible;padding:0}
  .automatic-delivery-collapse{display:none!important}
 }
+
+/* Document history actions: preview, edit, submit, validate and delete. */
+.automatic-delivery-history-item{
+  display:grid;
+  gap:7px;
+  border:1px solid #e1e8f1;
+  border-radius:10px;
+  padding:9px;
+  background:#fff;
+}
+.automatic-delivery-history-item.selected{
+  border-color:#0874f9;
+  background:#f7faff;
+}
+.automatic-delivery-history-open{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  width:100%;
+  padding:2px;
+  border:0;
+  background:transparent;
+  text-align:left;
+  cursor:pointer;
+}
+.automatic-delivery-history-open b,
+.automatic-delivery-history-open small{display:block}
+.automatic-delivery-history-open b{font-size:12px;color:#172b4d}
+.automatic-delivery-history-open small{margin-top:4px;color:#64748b;font-size:10px}
+.automatic-delivery-history-open em{
+  flex:none;
+  padding:5px 8px;
+  border-radius:20px;
+  background:#edf3ff;
+  color:#294d7a;
+  font-size:10px;
+  font-style:normal;
+  font-weight:750;
+}
+.automatic-delivery-row-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  padding-top:7px;
+  border-top:1px solid #e8edf4;
+}
+.automatic-delivery-row-actions button{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  border:1px solid #dbe4ef;
+  border-radius:7px;
+  padding:5px 7px;
+  background:#fff;
+  color:#29415f;
+  font-size:10px;
+  font-weight:700;
+  cursor:pointer;
+}
+.automatic-delivery-row-actions button:hover{background:#edf4ff;border-color:#b8cdea}
+.automatic-delivery-row-actions button.danger{color:#b42318;border-color:#f1d0cc}
+.automatic-delivery-row-actions button.danger:hover{background:#fff1ef;border-color:#e8b8b1}
+.automatic-delivery-row-actions button:disabled{opacity:.5;cursor:not-allowed}
