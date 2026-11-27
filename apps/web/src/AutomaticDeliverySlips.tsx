@@ -145,13 +145,13 @@ export default function AutomaticDeliverySlips({
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const availableFor = (item: Candidate) => item.available_to_slip + (isEditing
+  const availableFor = useCallback((item: Candidate) => item.available_to_slip + (isEditing
     ? slipLines.filter(line => line.source_pedagogical_group_id === item.pedagogical_group_id)
         .reduce((sum, line) => sum + line.quantity_delivered, 0)
-    : 0);
+    : 0), [isEditing, slipLines]);
   const chosen = useMemo(
     () => candidates.filter(item => selectedIds.includes(item.pedagogical_group_id) && availableFor(item) > 0),
-    [candidates, selectedIds, slipLines, isEditing],
+    [candidates, selectedIds, availableFor],
   );
   const total = chosen.reduce((sum, item) => sum + availableFor(item), 0);
   const anomalies = candidates.filter(item => item.available_to_slip < 0);
