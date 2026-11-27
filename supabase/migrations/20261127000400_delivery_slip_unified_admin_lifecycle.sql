@@ -362,7 +362,10 @@ BEGIN
   IF nullif(trim(coalesce(p_slip_number,'')),'') IS NULL THEN
     RAISE EXCEPTION 'Le numéro du bordereau est obligatoire';
   END IF;
-  IF jsonb_typeof(p_lines)<>'array' OR jsonb_array_length(p_lines)=0 THEN
+  IF p_lines IS NULL OR jsonb_typeof(p_lines) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'Les lignes du bordereau doivent être transmises sous forme de tableau';
+  END IF;
+  IF jsonb_array_length(p_lines)=0 THEN
     RAISE EXCEPTION 'Le bordereau doit contenir au moins une ligne';
   END IF;
   IF nullif(trim(coalesce(p_reason,'')),'') IS NULL THEN
