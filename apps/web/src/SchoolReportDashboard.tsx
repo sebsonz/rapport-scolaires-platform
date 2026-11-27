@@ -315,6 +315,23 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
     } finally { setBusy(false); }
   }
 
+  function handleDeliverySlipSchoolChange(nextSchoolId: string) {
+    const nextSchool = schools.find(item => item.id === nextSchoolId);
+    if (!nextSchool || nextSchool.id === schoolIdRef.current) return;
+    schoolIdRef.current = nextSchool.id;
+    setSchoolId(nextSchool.id);
+    setSelectedDepartmentId(nextSchool.department_id);
+    setSelectedCommune(nextSchool.commune_id ?? '');
+    setSelectedGroup('');
+    setEntryType('INITIAL');
+    setCapacity('');
+    setInitialEnrollment('');
+    setQuantity('');
+    setNote('');
+    setNotice('');
+    setError('');
+    void load(true, nextSchool.id);
+  }
   const fmt = (value: number) => value.toLocaleString('fr-FR');
   const enrollmentRate = totals.capacity ? totals.enrolled / totals.capacity * 100 : 0;
   const deliveryRate = totals.enrolled ? totals.delivered / totals.enrolled * 100 : 0;
@@ -424,26 +441,10 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
             </form>
             <article className="report-panel report-history" id="historique"><h3><History/> Dernières opérations</h3>{operations.slice(0,8).map(op => <div className="report-history-row" key={op.id}><span>{operationLabels[op.operation_type] ?? op.operation_type}</span><b>{fmt(op.quantity)}</b><small>{new Date(op.created_at).toLocaleString('fr-FR')}</small></div>)}{operations.length === 0 && <div className="report-empty">Aucune opération enregistrée.</div>}</article>
           </section>
-          <section id="bordereaux"><DeliverySlips memberships={memberships}/>{(memberships.some(item => item.role === 'CENTRAL_ADMIN') || memberships.some(item => item.role === 'CATEGORY_2')) && <AutomaticDeliverySlips
+          <section id="bordereaux"><DeliverySlips memberships={memberships} selectedSchoolId={school.id} onSchoolChange={handleDeliverySlipSchoolChange}/>{(memberships.some(item => item.role === 'CENTRAL_ADMIN') || memberships.some(item => item.role === 'CATEGORY_2')) && <AutomaticDeliverySlips
             memberships={memberships}
             selectedSchoolId={school.id}
-            onSchoolChange={(nextSchoolId) => {
-              const nextSchool = schools.find(item => item.id === nextSchoolId);
-              if (!nextSchool || nextSchool.id === schoolIdRef.current) return;
-              schoolIdRef.current = nextSchool.id;
-              setSchoolId(nextSchool.id);
-              setSelectedDepartmentId(nextSchool.department_id);
-              setSelectedCommune(nextSchool.commune_id ?? '');
-              setSelectedGroup('');
-              setEntryType('INITIAL');
-              setCapacity('');
-              setInitialEnrollment('');
-              setQuantity('');
-              setNote('');
-              setNotice('');
-              setError('');
-              void load(true, nextSchool.id);
-            }}
+            onSchoolChange={handleDeliverySlipSchoolChange}
           />}</section>
           {canReadCorrectionReasons && <section id="motifs-modification">
             <Suspense fallback={<div className="report-loading">Chargement des motifs de modification…</div>}>
