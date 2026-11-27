@@ -145,11 +145,15 @@ export default function AutomaticDeliverySlips({
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  const availableFor = (item: Candidate) => item.available_to_slip + (isEditing
+    ? slipLines.filter(line => line.source_pedagogical_group_id === item.pedagogical_group_id)
+        .reduce((sum, line) => sum + line.quantity_delivered, 0)
+    : 0);
   const chosen = useMemo(
-    () => candidates.filter(item => selectedIds.includes(item.pedagogical_group_id) && item.available_to_slip > 0),
-    [candidates, selectedIds],
+    () => candidates.filter(item => selectedIds.includes(item.pedagogical_group_id) && availableFor(item) > 0),
+    [candidates, selectedIds, slipLines, isEditing],
   );
-  const total = chosen.reduce((sum, item) => sum + item.available_to_slip, 0);
+  const total = chosen.reduce((sum, item) => sum + availableFor(item), 0);
   const anomalies = candidates.filter(item => item.available_to_slip < 0);
   const toggle = (id: string, checked: boolean) =>
     setSelectedIds(current => checked ? [...current, id] : current.filter(item => item !== id));
@@ -303,6 +307,10 @@ export default function AutomaticDeliverySlips({
                           const nextId = event.target.value;
                           setSelectedSlip(null);
                           setSlipLines([]);
+                          setIsEditing(false);
+                          setNumber('');
+                          setAgent('');
+                          setObservations('');
                           onSchoolChange(nextId);
                         }}
                         required
@@ -312,7 +320,7 @@ export default function AutomaticDeliverySlips({
                       </select>
                     </label>
                     <label>Année scolaire<input readOnly value={year?.label ?? 'Aucune année active'} /></label>
-                    <label>Numéro du bordereau<input required maxLength={60} value={number} onChange={event => setNumber(event.target.value)} placeholder="Ex. BOR-AUTO-2026-002" /></label>
+                    <label>Numéro du bordereau<input required maxLength={60} value={number} onChange={event => setNumber(event.target.value)} placeholder="Ex. BOR-2026-002" /></label>
                     <label>Date de livraison<input type="date" required value={date} onChange={event => setDate(event.target.value)} /></label>
                     <label>Agent responsable<input value={agent} onChange={event => setAgent(event.target.value)} maxLength={160} /></label>
                     <label className="wide">Observations<textarea rows={2} value={observations} onChange={event => setObservations(event.target.value)} /></label>
@@ -335,12 +343,13 @@ export default function AutomaticDeliverySlips({
                     </div>
                     <div className="automatic-delivery-candidates">
                       {candidates.map(item => {
-                        const bad = item.available_to_slip < 0;
+                        const available = availableFor(item);
+                        const bad = available < 0;
                         return (
                           <label className={'automatic-delivery-candidate' + (bad ? ' anomaly' : '')} key={item.pedagogical_group_id}>
-                            <input type="checkbox" checked={selectedIds.includes(item.pedagogical_group_id)} disabled={bad || item.available_to_slip === 0} onChange={event => toggle(item.pedagogical_group_id, event.target.checked)} />
-                            <span><b>{classLabel(item.promotion_label, item.group_code)}</b><small>Livré actuel : {fmt(item.current_delivered)} · Déjà bordereauté : {fmt(item.already_slipped)}</small></span>
-                            <strong>{fmt(item.available_to_slip)}</strong>
+                            <input type="checkbox" checked={selectedIds.includes(item.pedagogical_group_id)} disabled={bad || available === 0} onChange={event => toggle(item.pedagogical_group_id, event.target.checked)} />
+                            <span><b>{classLabel(item.promotion_label, item.group_code)}</b><small>Livré actuel : {fmt(item.current_delivered)} · Déjà bordereauté : {fmt(Math.max(0, item.already_slipped - (isEditing ? slipLines.filter(line => line.source_pedagogical_group_id === item.pedagogical_group_id).reduce((sum, line) => sum + line.quantity_delivered, 0) : 0)))}</small></span>
+                            <strong>{fmt(available)}</strong>
                             {bad && <em>Anomalie : vérifier l’historique</em>}
                             {!bad && item.available_to_slip === 0 && <em>À jour</em>}
                           </label>
@@ -390,7 +399,7 @@ export default function AutomaticDeliverySlips({
                     </div>
                   </div>
                 ))}
-                {!history.length && <p className="automatic-delivery-empty">Aucun bordereau enregistré.</p>
+                {!history.length && <p className="automatic-delivery-empty">Aucun bordereau enregistré.</p>}
               </div>
               {selectedSlip && (
                 <div className="automatic-delivery-selected">
