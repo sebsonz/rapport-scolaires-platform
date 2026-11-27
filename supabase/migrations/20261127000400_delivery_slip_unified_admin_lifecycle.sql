@@ -162,7 +162,6 @@ BEGIN
   RETURN v_result;
 END;
 $;
-
 REVOKE ALL ON FUNCTION public.add_delivery_slip_line(uuid,uuid,text,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.add_delivery_slip_line(uuid,uuid,text,integer) TO authenticated;
 
