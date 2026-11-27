@@ -21,10 +21,15 @@ BEGIN
  RETURN QUERY
  WITH src AS (
   SELECT g.id gid,g.promotion_id,g.group_code,p.label,r.id IS NOT NULL report_exists,
-   COALESCE(SUM(o.quantity) FILTER(WHERE o.operation_type IN('DELIVERY_INITIAL','DELIVERY_RATISSAGE','DELIVERY_CORRECTION_FIRST_ISSUE')),0)::bigint delivered
+   (COALESCE(MAX(corrected_initial.quantity),COALESCE(SUM(o.quantity) FILTER(WHERE o.operation_type='DELIVERY_INITIAL'),0))
+    + COALESCE(SUM(o.quantity) FILTER(WHERE o.operation_type IN('DELIVERY_RATISSAGE','DELIVERY_CORRECTION_FIRST_ISSUE')),0))::bigint delivered
   FROM public.pedagogical_groups g JOIN public.promotions p ON p.id=g.promotion_id
   LEFT JOIN public.school_reports r ON r.pedagogical_group_id=g.id
   LEFT JOIN public.school_report_operations o ON o.school_report_id=r.id
+  LEFT JOIN LATERAL (
+   SELECT c.quantity FROM public.school_report_delivery_initial_corrections c
+   WHERE c.school_report_id=r.id ORDER BY c.created_at DESC LIMIT 1
+  ) corrected_initial ON true
   WHERE g.school_id=p_school_id AND g.school_year_id=p_school_year_id
   GROUP BY g.id,g.promotion_id,g.group_code,p.label,r.id
  ), sl AS (
@@ -68,9 +73,24 @@ BEGIN
  SELECT * INTO v_slip FROM public.create_delivery_slip_v2(p_school_id,p_school_year_id,p_slip_number,p_delivery_date,v_role,p_observations,p_responsible_agent);
  UPDATE public.delivery_slips SET creation_mode='AUTOMATIC' WHERE id=v_slip.id RETURNING * INTO v_slip;
  FOR v_group IN SELECT id,promotion_id,group_code FROM public.pedagogical_groups WHERE id=ANY(p_group_ids) ORDER BY id LOOP
-  SELECT COALESCE(SUM(o.quantity),0)::bigint INTO v_delivered
-  FROM public.school_report_operations o JOIN public.school_reports r ON r.id=o.school_report_id
-  WHERE r.pedagogical_group_id=v_group.id AND o.operation_type IN('DELIVERY_INITIAL','DELIVERY_RATISSAGE','DELIVERY_CORRECTION_FIRST_ISSUE');
+  SELECT
+   COALESCE(
+    (SELECT c.quantity FROM public.school_report_delivery_initial_corrections c
+     JOIN public.school_reports r ON r.id=c.school_report_id
+     WHERE r.pedagogical_group_id=v_group.id ORDER BY c.created_at DESC LIMIT 1),
+    (SELECT SUM(o.quantity) FROM public.school_report_operations o
+     JOIN public.school_reports r ON r.id=o.school_report_id
+     WHERE r.pedagogical_group_id=v_group.id AND o.operation_type='DELIVERY_INITIAL'),
+    0
+   )
+   + COALESCE(
+    (SELECT SUM(o.quantity) FROM public.school_report_operations o
+     JOIN public.school_reports r ON r.id=o.school_report_id
+     WHERE r.pedagogical_group_id=v_group.id
+      AND o.operation_type IN('DELIVERY_RATISSAGE','DELIVERY_CORRECTION_FIRST_ISSUE')),
+    0
+   )
+  INTO v_delivered;
   SELECT COALESCE(SUM(l.quantity_delivered),0)::bigint INTO v_slipped
   FROM public.delivery_slip_lines l JOIN public.delivery_slips d ON d.id=l.delivery_slip_id
   WHERE d.school_id=p_school_id AND d.school_year_id=p_school_year_id AND d.status<>'CANCELLED'
