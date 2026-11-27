@@ -58,7 +58,11 @@ function publicLogo(path: unknown) {
   return supabase.storage.from('organization-logos').getPublicUrl(path).data.publicUrl;
 }
 
-export default function DeliverySlips({ memberships, selectedSchoolId, onSchoolChange }: {\n  memberships: Membership[];\n  selectedSchoolId: string;\n  onSchoolChange: (schoolId: string) => void;\n}) {
+export default function DeliverySlips({ memberships, selectedSchoolId, onSchoolChange }: {
+  memberships: Membership[];
+  selectedSchoolId: string;
+  onSchoolChange: (schoolId: string) => void;
+}) {
   const isAdmin = memberships.some(item => item.role === 'CENTRAL_ADMIN');
   const [schools, setSchools] = useState<School[]>([]);
   const [currentUserId, setCurrentUserId] = useState('');
@@ -115,7 +119,8 @@ export default function DeliverySlips({ memberships, selectedSchoolId, onSchoolC
     const slipResult = await supabase.from('delivery_slips')
       .select('id,school_id,school_year_id,slip_number,delivery_date,status,observations,responsible_agent,created_by,creator_role,creator_full_name,validated_by,validated_at,organization_snapshot')
       .eq('school_id', nextSchoolId).order('created_at', { ascending: false });
-    if (requestId !== loadRequestRef.current) return;\n    if (slipResult.error) { setError(slipResult.error.message); setLoading(false); return; }
+    if (requestId !== loadRequestRef.current) return;
+    if (slipResult.error) { setError(slipResult.error.message); setLoading(false); return; }
     const nextSlips = (slipResult.data ?? []) as Slip[];
     setSlips(nextSlips);
     const nextSelected = nextSlips.some(item => item.id === selectedSlipId) ? selectedSlipId : nextSlips[0]?.id ?? '';
@@ -127,7 +132,8 @@ export default function DeliverySlips({ memberships, selectedSchoolId, onSchoolC
       nextSelected ? supabase.from('delivery_slip_lines').select('id,delivery_slip_id,promotion_id,group_code,quantity_delivered')
         .eq('delivery_slip_id', nextSelected).order('created_at') : Promise.resolve({ data: [], error: null }),
     ]);
-    if (requestId !== loadRequestRef.current) return;\n    if (groupResult.error || lineResult.error) {
+    if (requestId !== loadRequestRef.current) return;
+    if (groupResult.error || lineResult.error) {
       setError(groupResult.error?.message ?? lineResult.error?.message ?? 'Impossible de charger les lignes du bordereau.');
       setLoading(false); return;
     }
@@ -267,7 +273,7 @@ export default function DeliverySlips({ memberships, selectedSchoolId, onSchoolC
       </section>
       <section className="delivery-panel">
         <label className="delivery-school-filter">Établissement
-          <select value={schoolId} onChange={event => { setSchoolId(event.target.value); setSelectedSlipId(''); }}>
+          <select value={schoolId} onChange={event => { onSchoolChange(event.target.value); setSelectedSlipId(''); }}>
             <option value="">Choisir un établissement</option>
             {schools.map(item => <option key={item.id} value={item.id}>{item.name} · {item.code}</option>)}
           </select>
