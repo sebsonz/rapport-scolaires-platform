@@ -6,9 +6,12 @@ type AdminSlip = {
   slip_number: string;
   delivery_date: string;
   status: string;
+  school_id: string;
+  school_year_id: string;
   observations: string | null;
   responsible_agent: string | null;
 };
+type AdminGroup = { id: string; promotion_id: string; group_code: string; promotion_label: string };
 type AdminLine = {
   id?: string;
   promotion_id: string;
@@ -31,8 +34,23 @@ export default function DeliverySlipAdminTools({
   const [agent, setAgent] = useState(slip.responsible_agent ?? '');
   const [observations, setObservations] = useState(slip.observations ?? '');
   const [draftLines, setDraftLines] = useState<AdminLine[]>(lines);
+  const [groups, setGroups] = useState<AdminGroup[]>([]);
+  const [newGroupId, setNewGroupId] = useState('');
+  const [newQuantity, setNewQuantity] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!supabase) return;
+    void supabase.from('pedagogical_groups')
+      .select('id,promotion_id,group_code,promotions(label)')
+      .eq('school_id', slip.school_id).eq('school_year_id', slip.school_year_id)
+      .order('group_code')
+      .then(({ data }) => setGroups((data ?? []).map((item: any) => ({
+        id: item.id, promotion_id: item.promotion_id, group_code: item.group_code,
+        promotion_label: item.promotions?.label ?? item.promotion_id,
+      }))));
+  }, [slip.id, slip.school_id, slip.school_year_id]);
 
   useEffect(() => {
     setEditing(false);
@@ -134,6 +152,26 @@ export default function DeliverySlipAdminTools({
               <button type="button" onClick={() => setDraftLines(current => current.filter((_, i) => i !== index))}>Retirer</button>
             </div>
           ))}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 110px auto', gap: 8, alignItems: 'end' }}>
+            <label>Ajouter un groupe
+              <select value={newGroupId} onChange={e => setNewGroupId(e.target.value)}>
+                <option value="">Choisir un groupe pédagogique</option>
+                {groups.filter(group => !draftLines.some(line => line.promotion_id === group.promotion_id && line.group_code === group.group_code))
+                  .map(group => <option key={group.id} value={group.id}>{group.promotion_label} · {group.group_code}</option>)}
+              </select>
+            </label>
+            <label>Quantité<input type="number" min="1" step="1" value={newQuantity} onChange={e => setNewQuantity(e.target.value)} /></label>
+            <button type="button" disabled={!newGroupId || !Number.isInteger(Number(newQuantity)) || Number(newQuantity) <= 0}
+              onClick={() => {
+                const group = groups.find(item => item.id === newGroupId);
+                if (!group) return;
+                setDraftLines(current => [...current, {
+                  promotion_id: group.promotion_id, group_code: group.group_code,
+                  quantity_delivered: Number(newQuantity), source_pedagogical_group_id: group.id,
+                }]);
+                setNewGroupId(''); setNewQuantity('');
+              }}>Ajouter la ligne</button>
+          </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button type="button" disabled={busy} onClick={() => void save()}>Enregistrer la correction</button>
             <button type="button" disabled={busy} onClick={() => setEditing(false)}>Fermer</button>
