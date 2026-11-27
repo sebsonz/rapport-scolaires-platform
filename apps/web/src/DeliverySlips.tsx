@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { CheckCircle2, ChevronDown, ChevronUp, FilePlus2, Printer, RefreshCw, Send, ShieldCheck } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './DeliverySlips.css';
+import DeliverySlipAdminTools from './DeliverySlipAdminTools';
 
 type Membership = { department_id: string | null; role: 'CENTRAL_ADMIN' | 'CATEGORY_1' | 'CATEGORY_2' };
 type School = { id: string; department_id: string; code: string; name: string };
@@ -10,14 +11,14 @@ type Promotion = { id: string; label: string; code: string };
 type PedagogicalGroup = { id: string; school_id: string; school_year_id: string; promotion_id: string; group_code: string };
 type Slip = {
   id: string; school_id: string; school_year_id: string; slip_number: string; delivery_date: string;
-  status: 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'CANCELLED'; observations: string | null;
+  status: 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'CANCELLED' | 'ARCHIVED'; observations: string | null;
   responsible_agent: string | null; created_by: string; creator_role: string | null; creator_full_name: string | null;
   validated_by: string | null; validated_at: string | null; organization_snapshot: Record<string, unknown> | null;
 };
 type Line = { id: string; delivery_slip_id: string; promotion_id: string; group_code: string; quantity_delivered: number };
 
 const statusLabels: Record<Slip['status'], string> = {
-  DRAFT: 'Brouillon', SUBMITTED: 'Soumis', VALIDATED: 'Validé', CANCELLED: 'Annulé',
+  DRAFT: 'Brouillon', SUBMITTED: 'Soumis', VALIDATED: 'Validé', CANCELLED: 'Annulé', ARCHIVED: 'Archivé',
 };
 
 function numberToFrench(value: number): string {
@@ -318,5 +319,6 @@ export default function DeliverySlips({ memberships, selectedSchoolId, onSchoolC
       </div>
     </section>}
     </div>}
+    {selectedSlip && <DeliverySlipAdminTools slip={selectedSlip} lines={selectedLines} isAdmin={isAdmin} onRefresh={load} />}
   </div>;
 }
