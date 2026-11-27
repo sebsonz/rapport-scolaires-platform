@@ -28,7 +28,7 @@ BEGIN
   WHERE g.school_id=p_school_id AND g.school_year_id=p_school_year_id
   GROUP BY g.id,g.promotion_id,g.group_code,p.label,r.id
  ), sl AS (
-  SELECT s.gid,COALESCE(SUM(l.quantity_delivered),0)::bigint slipped
+  SELECT s.gid,COALESCE(SUM(CASE WHEN d.id IS NOT NULL THEN l.quantity_delivered ELSE 0 END),0)::bigint slipped
   FROM src s LEFT JOIN public.delivery_slip_lines l ON
    (l.source_pedagogical_group_id=s.gid OR (l.source_pedagogical_group_id IS NULL AND l.promotion_id=s.promotion_id AND l.group_code=s.group_code))
   LEFT JOIN public.delivery_slips d ON d.id=l.delivery_slip_id AND d.school_id=p_school_id AND d.school_year_id=p_school_year_id AND d.status<>'CANCELLED'
@@ -52,7 +52,7 @@ DECLARE
 BEGIN
  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Authentification requise'; END IF;
  IF p_group_ids IS NULL OR cardinality(p_group_ids)=0 THEN RAISE EXCEPTION 'Sélectionnez au moins une classe'; END IF;
- SELECT COUNT(DISTINCT x)::integer INTO v_requested FROM unnest(p_group_ids) x;
+ SELECT COUNT(DISTINCT u.group_id)::integer INTO v_requested FROM unnest(p_group_ids) AS u(group_id);
  IF v_requested<>cardinality(p_group_ids) THEN RAISE EXCEPTION 'La sélection contient des classes en double'; END IF;
  SELECT department_id INTO v_department FROM public.schools WHERE id=p_school_id AND is_active=true FOR UPDATE;
  IF v_department IS NULL OR NOT public.has_department_access(v_department) THEN RAISE EXCEPTION 'Accès à cet établissement refusé'; END IF;
