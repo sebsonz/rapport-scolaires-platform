@@ -110,9 +110,25 @@
 .automatic-delivery-row-actions button.danger:hover{background:#fff1ef;border-color:#e8b8b1}
 .automatic-delivery-row-actions button:disabled{opacity:.5;cursor:not-allowed}
 
-/* The selected document is a real on-screen preview; print mode reuses it. */
+/* Keep the document out of the workspace until the user requests its preview. */
 .automatic-delivery-module .automatic-delivery-print-document{
-  display:block;
+  display:none;
   margin-top:14px;
   background:#fff;
+}
+.automatic-delivery-module .automatic-delivery-print-document.is-preview-open{
+  display:block;
+}
+.automatic-delivery-preview-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 14px;
+  border-bottom:1px solid #e5eaf1;
+  color:#263956;
+  font-size:12px;
+}
+@media print{
+  .automatic-delivery-preview-toolbar{display:none!important}
 }
