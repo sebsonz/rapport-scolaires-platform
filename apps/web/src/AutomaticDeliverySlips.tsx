@@ -47,6 +47,7 @@ export default function AutomaticDeliverySlips({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [history, setHistory] = useState<Slip[]>([]);
   const [selectedSlip, setSelectedSlip] = useState<Slip | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [slipLines, setSlipLines] = useState<SlipLine[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [number, setNumber] = useState('');
@@ -138,6 +139,7 @@ export default function AutomaticDeliverySlips({
   useEffect(() => {
     slipRequestRef.current += 1;
     setSelectedSlip(null);
+    setPreviewOpen(false);
     setSlipLines([]);
     setError('');
     setNotice('');
@@ -158,8 +160,9 @@ export default function AutomaticDeliverySlips({
   const toggle = (id: string, checked: boolean) =>
     setSelectedIds(current => checked ? [...current, id] : current.filter(item => item !== id));
 
-  async function openSlip(slip: Slip) {
+  async function openSlip(slip: Slip, showPreview = false) {
     if (!supabase) return;
+    setPreviewOpen(showPreview);
     const requestId = ++slipRequestRef.current;
     setSelectedSlip(slip);
     setIsEditing(false);
@@ -239,6 +242,7 @@ export default function AutomaticDeliverySlips({
     if (deleteError) { setError(deleteError.message); return; }
     if (selectedSlip?.id === slip.id) {
       setSelectedSlip(null);
+      setPreviewOpen(false);
       setSlipLines([]);
       setIsEditing(false);
     }
@@ -317,6 +321,7 @@ export default function AutomaticDeliverySlips({
                         onChange={event => {
                           const nextId = event.target.value;
                           setSelectedSlip(null);
+                          setPreviewOpen(false);
                           setSlipLines([]);
                           setIsEditing(false);
                           setNumber('');
@@ -400,7 +405,7 @@ export default function AutomaticDeliverySlips({
                       <em>{statusLabels[item.status]}</em>
                     </button>
                     <div className="automatic-delivery-row-actions">
-                      <button type="button" title="Aperçu" aria-label="Aperçu" onClick={() => void openSlip(item)}><Eye size={14}/> Aperçu</button>
+                      <button type="button" title="Aperçu" aria-label="Aperçu" onClick={() => void openSlip(item, true)}><Eye size={14}/> Aperçu</button>
                       {item.status === 'DRAFT' && <>
                         <button type="button" title="Modifier" aria-label="Modifier" onClick={() => void beginEdit(item)}><Pencil size={14}/> Modifier</button>
                         <button type="button" className="danger" title="Supprimer" aria-label="Supprimer" onClick={() => void removeSlip(item)}><Trash2 size={14}/> Supprimer</button>
@@ -426,7 +431,11 @@ export default function AutomaticDeliverySlips({
       </div>
 
       {selectedSlip && (
-        <section className="delivery-document automatic-delivery-print-document">
+        <section className={'delivery-document automatic-delivery-print-document' + (previewOpen ? ' is-preview-open' : '')}>
+          <div className="automatic-delivery-preview-toolbar">
+            <b>Aperçu du bordereau · {selectedSlip.slip_number}</b>
+            <button type="button" className="automatic-delivery-secondary" onClick={() => setPreviewOpen(false)}>Fermer l’aperçu</button>
+          </div>
           <div className="delivery-brandbar">
             <div className="delivery-brand"><div className="delivery-logo"><span>O</span></div><div>
               <h1>{String(selectedSlip.organization_snapshot?.legal_name ?? selectedSlip.organization_snapshot?.short_name ?? 'OMICROME')}</h1>
