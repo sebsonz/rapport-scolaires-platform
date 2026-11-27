@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { CheckCircle2, FilePlus2, Printer, RefreshCw, Send, ShieldCheck, Truck } from 'lucide-react';
+import { CheckCircle2, FilePlus2, Printer, RefreshCw, Send, ShieldCheck } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './DeliverySlips.css';
 
