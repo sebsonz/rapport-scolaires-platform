@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { CheckCircle2, FilePlus2, Printer, RefreshCw, Send, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, FilePlus2, Printer, RefreshCw, Send, ShieldCheck } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './DeliverySlips.css';
 
@@ -80,6 +80,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [isContentVisible, setIsContentVisible] = useState(true);
 
   useEffect(() => {
     void supabase?.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? ''));
@@ -227,6 +228,22 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
   const printSlip = () => window.print();
 
   return <div className="delivery-module">
+    <div className="delivery-heading">
+      <div>
+        <h2><FilePlus2 size={20}/> Bordereaux de livraison</h2>
+        <p>Création, suivi, soumission et impression des bordereaux officiels.</p>
+      </div>
+      <button
+        type="button"
+        className="delivery-secondary"
+        aria-expanded={isContentVisible}
+        onClick={() => setIsContentVisible(visible => !visible)}
+      >
+        {isContentVisible ? <ChevronUp size={15}/> : <ChevronDown size={15}/>}
+        {isContentVisible ? 'Masquer' : 'Afficher'}
+      </button>
+    </div>
+    {isContentVisible && <div className="delivery-content">
     <div className="delivery-legacy-refresh">
       <button type="button" className="delivery-secondary" onClick={() => void load()} disabled={loading}>
         <RefreshCw size={15}/> Actualiser
@@ -290,5 +307,6 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
         <section><h3>Cachet de l’établissement</h3><div className="delivery-stamp-box"/></section>
       </div>
     </section>}
+    </div>}
   </div>;
 }
