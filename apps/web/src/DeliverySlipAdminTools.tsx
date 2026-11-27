@@ -47,6 +47,7 @@ export default function DeliverySlipAdminTools({
   if (!isAdmin) return null;
 
   async function runTransition(action: 'CANCEL' | 'ARCHIVE') {
+    if (!supabase) { setError('Connexion Supabase indisponible.'); return; }
     const reason = window.prompt(action === 'CANCEL'
       ? 'Motif obligatoire de l’annulation :'
       : 'Motif obligatoire de l’archivage :');
@@ -65,6 +66,7 @@ export default function DeliverySlipAdminTools({
   }
 
   async function remove() {
+    if (!supabase) { setError('Connexion Supabase indisponible.'); return; }
     const reason = window.prompt('Motif obligatoire de la suppression définitive :');
     if (reason === null) return;
     if (!reason.trim()) { setError('Le motif est obligatoire.'); return; }
@@ -79,6 +81,7 @@ export default function DeliverySlipAdminTools({
   }
 
   async function save() {
+    if (!supabase) { setError('Connexion Supabase indisponible.'); return; }
     if (!number.trim() || !date || !draftLines.length) {
       setError('Le numéro, la date et au moins une ligne sont obligatoires.'); return;
     }
