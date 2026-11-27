@@ -215,6 +215,7 @@ export default function AutomaticDeliverySlips({
     setDate(slip.delivery_date);
     setAgent(slip.responsible_agent ?? '');
     setObservations(slip.observations ?? '');
+    setCollapsed(current => ({ ...current, prepare: false, details: false, candidates: false }));
     setIsEditing(true);
   }
 
@@ -337,7 +338,7 @@ export default function AutomaticDeliverySlips({
                   <>
                     <div className="automatic-delivery-selection">
                       <span className="automatic-delivery-selection-actions">
-                        <button type="button" onClick={() => setSelectedIds(candidates.filter(item => item.available_to_slip > 0).map(item => item.pedagogical_group_id))}>Tout sélectionner</button>
+                        <button type="button" onClick={() => setSelectedIds(candidates.filter(item => availableFor(item) > 0).map(item => item.pedagogical_group_id))}>Tout sélectionner</button>
                         <button type="button" onClick={() => setSelectedIds([])}>Tout exclure</button>
                       </span>
                     </div>
