@@ -167,7 +167,9 @@ export default function AutomaticDeliverySlips({
       setError(queryError.message);
       setSlipLines([]);
     } else {
-      setSlipLines((data ?? []) as SlipLine[]);
+      const lines = (data ?? []) as SlipLine[];
+      setSlipLines(lines);
+      setSelectedIds(lines.map(line => line.source_pedagogical_group_id).filter((id): id is string => !!id));
     }
   }
 
@@ -197,6 +199,60 @@ export default function AutomaticDeliverySlips({
     setNotice('Bordereau automatique créé. Les quantités ont été réservées dans son historique.');
     await refresh();
     if (data) await openSlip(data as Slip);
+  }
+
+
+  async function beginEdit(slip: Slip) {
+    await openSlip(slip);
+    setNumber(slip.slip_number);
+    setDate(slip.delivery_date);
+    setAgent(slip.responsible_agent ?? '');
+    setObservations(slip.observations ?? '');
+    setIsEditing(true);
+  }
+
+  async function removeSlip(slip: Slip) {
+    if (!supabase || !window.confirm(`Supprimer définitivement le brouillon « ${slip.slip_number} » ? Cette action est irréversible.`)) return;
+    setBusy(true);
+    const { error: deleteError } = await supabase.rpc('delete_automatic_delivery_slip', {
+      p_delivery_slip_id: slip.id,
+    });
+    setBusy(false);
+    if (deleteError) { setError(deleteError.message); return; }
+    if (selectedSlip?.id === slip.id) {
+      setSelectedSlip(null);
+      setSlipLines([]);
+      setIsEditing(false);
+    }
+    setNotice('Brouillon supprimé.');
+    await refresh();
+  }
+
+  async function submitSlip(slip: Slip) {
+    if (!supabase || !window.confirm(`Soumettre le bordereau « ${slip.slip_number} » à l’administration centrale ?`)) return;
+    setBusy(true);
+    const { error: submitError } = await supabase.rpc('submit_delivery_slip', {
+      p_delivery_slip_id: slip.id,
+    });
+    setBusy(false);
+    if (submitError) { setError(submitError.message); return; }
+    setNotice('Bordereau soumis pour validation.');
+    await refresh();
+    const updated = { ...slip, status: 'SUBMITTED' as const };
+    await openSlip(updated);
+  }
+
+  async function validateSlip(slip: Slip) {
+    if (!supabase || !window.confirm(`Confirmer la validation du bordereau « ${slip.slip_number} » ?`)) return;
+    setBusy(true);
+    const { error: validationError } = await supabase.rpc('validate_automatic_delivery_slip', {
+      p_delivery_slip_id: slip.id,
+    });
+    setBusy(false);
+    if (validationError) { setError(validationError.message); return; }
+    setNotice('Bordereau validé.');
+    await refresh();
+    await openSlip({ ...slip, status: 'VALIDATED' });
   }
 
   const print = () => {
@@ -341,13 +397,13 @@ export default function AutomaticDeliverySlips({
             </div></div>
             <div className="delivery-platform-brand"><b>Rapports Scolaires 2026 – 2027</b><span>Gestion et suivi des cartes scolaires</span></div>
           </div>
-          <div className="delivery-title-ribbon"><span>BORDEREAU DE LIVRAISON AUTOMATIQUE</span></div>
+          <div className="delivery-title-ribbon"><span>BORDEREAU DE LIVRAISON</span></div>
           <div className="delivery-document-meta">
             <div><span>Établissement :</span><b>{school?.name ?? '—'}</b><span>Agent responsable :</span><b>{selectedSlip.responsible_agent ?? '—'}</b><span>Année scolaire :</span><b>{year?.label ?? '—'}</b></div>
             <div><span>N° Bordereau :</span><b className="delivery-number-pill">{selectedSlip.slip_number}</b><span>Date :</span><b>{new Date(selectedSlip.delivery_date).toLocaleDateString('fr-FR')}</b><span>Statut :</span><b>{statusLabels[selectedSlip.status]}</b></div>
           </div>
           <table className="delivery-print-table">
-            <thead><tr><th>N°</th><th>Groupes pédagogiques</th><th>Nouvelle quantité livrée</th></tr></thead>
+            <thead><tr><th>N°</th><th>Classe / groupe pédagogique</th><th>Quantité nouvellement livrée (exemplaires)</th></tr></thead>
             <tbody>{slipLines.map((line, index) => (
               <tr key={line.id}><td>{index + 1}</td><td>{classLabel(candidates.find(item => item.promotion_id === line.promotion_id)?.promotion_label ?? 'Classe', line.group_code)}</td><td>{fmt(line.quantity_delivered)}</td></tr>
             ))}</tbody>
