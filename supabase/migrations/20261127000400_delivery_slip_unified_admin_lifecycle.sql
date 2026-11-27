@@ -90,6 +90,7 @@ BEGIN
   SELECT * INTO v_slip FROM public.delivery_slips
   WHERE id=p_delivery_slip_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Bordereau introuvable'; END IF;
+  PERFORM 1 FROM public.schools s WHERE s.id=v_slip.school_id FOR UPDATE;
   SELECT s.department_id INTO v_department
   FROM public.schools s WHERE s.id=v_slip.school_id;
   IF v_department IS NULL OR NOT public.has_department_access(v_department) THEN
@@ -107,7 +108,8 @@ BEGIN
   WHERE g.school_id=v_slip.school_id
     AND g.school_year_id=v_slip.school_year_id
     AND g.promotion_id=p_promotion_id
-    AND g.group_code=trim(p_group_code);
+    AND g.group_code=trim(p_group_code)
+  FOR UPDATE;
   IF v_group_id IS NULL THEN
     RAISE EXCEPTION 'Le groupe pédagogique ne correspond pas à cet établissement et à cette année scolaire';
   END IF;
@@ -370,6 +372,7 @@ BEGIN
   SELECT * INTO v_slip FROM public.delivery_slips
   WHERE id=p_delivery_slip_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Bordereau introuvable'; END IF;
+  PERFORM 1 FROM public.schools WHERE id=v_slip.school_id FOR UPDATE;
   SELECT department_id INTO v_department FROM public.schools WHERE id=v_slip.school_id;
 
   v_before:=jsonb_build_object(
