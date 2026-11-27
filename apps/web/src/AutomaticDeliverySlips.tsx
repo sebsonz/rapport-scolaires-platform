@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
-  AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Printer,
-  RefreshCw, Sparkles, Truck,
+  AlertTriangle, BadgeCheck, CheckCircle2, ChevronDown, ChevronRight, Eye, Pencil, Printer,
+  RefreshCw, Send, Trash2, Truck,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './AutomaticDeliverySlips.css';
@@ -20,7 +20,7 @@ type Slip = {
   observations: string | null; responsible_agent: string | null;
   creator_full_name: string | null; organization_snapshot: Record<string, unknown> | null;
 };
-type SlipLine = { id: string; promotion_id: string; group_code: string; quantity_delivered: number };
+type SlipLine = { id: string; promotion_id: string; group_code: string; quantity_delivered: number; source_pedagogical_group_id: string | null };
 
 const statusLabels: Record<Slip['status'], string> = {
   DRAFT: 'Brouillon', SUBMITTED: 'Soumis', VALIDATED: 'Validé', CANCELLED: 'Annulé',
@@ -48,6 +48,7 @@ export default function AutomaticDeliverySlips({
   const [history, setHistory] = useState<Slip[]>([]);
   const [selectedSlip, setSelectedSlip] = useState<Slip | null>(null);
   const [slipLines, setSlipLines] = useState<SlipLine[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
   const [number, setNumber] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [agent, setAgent] = useState('');
@@ -157,9 +158,10 @@ export default function AutomaticDeliverySlips({
     if (!supabase) return;
     const requestId = ++slipRequestRef.current;
     setSelectedSlip(slip);
+    setIsEditing(false);
     const { data, error: queryError } = await supabase
       .from('delivery_slip_lines')
-      .select('id,promotion_id,group_code,quantity_delivered')
+      .select('id,promotion_id,group_code,quantity_delivered,source_pedagogical_group_id')
       .eq('delivery_slip_id', slip.id)
       .order('created_at');
     if (requestId !== slipRequestRef.current) return;
@@ -179,24 +181,25 @@ export default function AutomaticDeliverySlips({
     setBusy(true);
     setError('');
     setNotice('');
-    const { data, error: createError } = await supabase.rpc('create_automatic_delivery_slip', {
-      p_school_id: schoolId,
-      p_school_year_id: year.id,
-      p_slip_number: number.trim(),
-      p_delivery_date: date,
-      p_group_ids: selectedIds,
-      p_observations: observations.trim() || null,
-      p_responsible_agent: agent.trim() || null,
-    });
+    const rpcName = isEditing ? 'update_automatic_delivery_slip' : 'create_automatic_delivery_slip';
+    const rpcArgs = isEditing && selectedSlip
+      ? { p_delivery_slip_id: selectedSlip.id, p_slip_number: number.trim(), p_delivery_date: date,
+          p_group_ids: selectedIds, p_observations: observations.trim() || null,
+          p_responsible_agent: agent.trim() || null }
+      : { p_school_id: schoolId, p_school_year_id: year.id, p_slip_number: number.trim(),
+          p_delivery_date: date, p_group_ids: selectedIds,
+          p_observations: observations.trim() || null, p_responsible_agent: agent.trim() || null };
+    const { data, error: createError } = await supabase.rpc(rpcName, rpcArgs);
     setBusy(false);
     if (createError) {
       setError(createError.message);
       return;
     }
+    setIsEditing(false);
     setNumber('');
     setAgent('');
     setObservations('');
-    setNotice('Bordereau automatique créé. Les quantités ont été réservées dans son historique.');
+    setNotice(isEditing ? 'Bordereau modifié.' : 'Brouillon créé. Vous pouvez le consulter, le corriger puis le soumettre.');
     await refresh();
     if (data) await openSlip(data as Slip);
   }
@@ -266,9 +269,9 @@ export default function AutomaticDeliverySlips({
     <div className="automatic-delivery-module">
       <div className="automatic-delivery-heading">
         <div>
-          <span className="automatic-delivery-eyebrow">NOUVEAU MODE · SANS RESSAISIE</span>
-          <h2><Sparkles size={20} /> Bordereau automatique</h2>
-          <p>Effectif livré actuel moins le cumul déjà bordereauté. Les classes exclues restent disponibles.</p>
+          <span className="automatic-delivery-eyebrow">GESTION DES LIVRAISONS</span>
+          <h2><Truck size={20} /> Bordereaux de livraison</h2>
+          <p>Préparez, vérifiez et suivez les bordereaux de vos établissements.</p>
         </div>
         <button type="button" className="automatic-delivery-secondary" onClick={() => void refresh()} disabled={loading}>
           <RefreshCw size={15} /> Actualiser
@@ -352,8 +355,11 @@ export default function AutomaticDeliverySlips({
 
               <div className="automatic-delivery-total wide"><span>Total sélectionné</span><b>{fmt(total)}</b></div>
               <button className="automatic-delivery-primary wide" disabled={busy || loading || !canGenerate || !year || !selectedIds.length || total <= 0}>
-                {busy ? 'Génération…' : 'Générer le bordereau automatique'}
+                {busy ? 'Enregistrement…' : isEditing ? 'Enregistrer les modifications' : 'Créer le brouillon'}
               </button>
+              {isEditing && <button type="button" className="automatic-delivery-secondary wide" onClick={() => { setIsEditing(false); setSelectedSlip(null); setSlipLines([]); }}>
+                Annuler la modification
+              </button>}
               {!canGenerate && school && <p className="automatic-delivery-hint wide">Réservé à la Catégorie 2 ou à l’administration centrale.</p>}
             </form>
           )}
@@ -361,19 +367,30 @@ export default function AutomaticDeliverySlips({
 
         <section className="automatic-delivery-panel">
           <div className="automatic-delivery-panel-heading">
-            <h3>Historique automatique <span>{history.length}</span></h3>
+            <h3>Historique des bordereaux <span>{history.length}</span></h3>
             {blockToggle('history', "l'historique")}
           </div>
           {!collapsed.history && (
             <>
               <div className="automatic-delivery-history">
                 {history.map(item => (
-                  <button type="button" key={item.id} className={selectedSlip?.id === item.id ? 'selected' : ''} onClick={() => void openSlip(item)}>
-                    <span><b>{item.slip_number}</b><small>{new Date(item.delivery_date).toLocaleDateString('fr-FR')}</small></span>
-                    <em>{statusLabels[item.status]}</em>
-                  </button>
+                  <div key={item.id} className={'automatic-delivery-history-item' + (selectedSlip?.id === item.id ? ' selected' : '')}>
+                    <button type="button" className="automatic-delivery-history-open" onClick={() => void openSlip(item)}>
+                      <span><b>{item.slip_number}</b><small>{new Date(item.delivery_date).toLocaleDateString('fr-FR')}</small></span>
+                      <em>{statusLabels[item.status]}</em>
+                    </button>
+                    <div className="automatic-delivery-row-actions">
+                      <button type="button" title="Aperçu" aria-label="Aperçu" onClick={() => void openSlip(item)}><Eye size={14}/> Aperçu</button>
+                      {item.status === 'DRAFT' && <>
+                        <button type="button" title="Modifier" aria-label="Modifier" onClick={() => void beginEdit(item)}><Pencil size={14}/> Modifier</button>
+                        <button type="button" className="danger" title="Supprimer" aria-label="Supprimer" onClick={() => void removeSlip(item)}><Trash2 size={14}/> Supprimer</button>
+                        <button type="button" onClick={() => void submitSlip(item)}><Send size={14}/> Soumettre</button>
+                      </>}
+                      {item.status === 'SUBMITTED' && isAdmin && <button type="button" onClick={() => void validateSlip(item)}><BadgeCheck size={14}/> Valider</button>}
+                    </div>
+                  </div>
                 ))}
-                {!history.length && <p className="automatic-delivery-empty">Aucun bordereau automatique enregistré.</p>}
+                {!history.length && <p className="automatic-delivery-empty">Aucun bordereau enregistré.</p>
               </div>
               {selectedSlip && (
                 <div className="automatic-delivery-selected">
