@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { CheckCircle2, FilePlus2, Printer, RefreshCw, Send, ShieldCheck, Truck } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { CheckCircle2, ChevronDown, ChevronUp, FilePlus2, Printer, RefreshCw, Send, ShieldCheck } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './DeliverySlips.css';
+import DeliverySlipAdminTools from './DeliverySlipAdminTools';
 
 type Membership = { department_id: string | null; role: 'CENTRAL_ADMIN' | 'CATEGORY_1' | 'CATEGORY_2' };
 type School = { id: string; department_id: string; code: string; name: string };
@@ -10,14 +11,14 @@ type Promotion = { id: string; label: string; code: string };
 type PedagogicalGroup = { id: string; school_id: string; school_year_id: string; promotion_id: string; group_code: string };
 type Slip = {
   id: string; school_id: string; school_year_id: string; slip_number: string; delivery_date: string;
-  status: 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'CANCELLED'; observations: string | null;
+  status: 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'CANCELLED' | 'ARCHIVED'; observations: string | null;
   responsible_agent: string | null; created_by: string; creator_role: string | null; creator_full_name: string | null;
   validated_by: string | null; validated_at: string | null; organization_snapshot: Record<string, unknown> | null;
 };
 type Line = { id: string; delivery_slip_id: string; promotion_id: string; group_code: string; quantity_delivered: number };
 
 const statusLabels: Record<Slip['status'], string> = {
-  DRAFT: 'Brouillon', SUBMITTED: 'Soumis', VALIDATED: 'Validé', CANCELLED: 'Annulé',
+  DRAFT: 'Brouillon', SUBMITTED: 'Soumis', VALIDATED: 'Validé', CANCELLED: 'Annulé', ARCHIVED: 'Archivé',
 };
 
 function numberToFrench(value: number): string {
@@ -58,7 +59,11 @@ function publicLogo(path: unknown) {
   return supabase.storage.from('organization-logos').getPublicUrl(path).data.publicUrl;
 }
 
-export default function DeliverySlips({ memberships }: { memberships: Membership[] }) {
+export default function DeliverySlips({ memberships, selectedSchoolId, onSchoolChange }: {
+  memberships: Membership[];
+  selectedSchoolId: string;
+  onSchoolChange: (schoolId: string) => void;
+}) {
   const isAdmin = memberships.some(item => item.role === 'CENTRAL_ADMIN');
   const [schools, setSchools] = useState<School[]>([]);
   const [currentUserId, setCurrentUserId] = useState('');
@@ -67,7 +72,8 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
   const [groups, setGroups] = useState<PedagogicalGroup[]>([]);
   const [slips, setSlips] = useState<Slip[]>([]);
   const [lines, setLines] = useState<Line[]>([]);
-  const [schoolId, setSchoolId] = useState('');
+  const schoolId = selectedSchoolId;
+  const loadRequestRef = useRef(0);
   const [selectedSlipId, setSelectedSlipId] = useState('');
   const [creatorRole, setCreatorRole] = useState<'CATEGORY_1' | 'CATEGORY_2' | 'CENTRAL_ADMIN'>(isAdmin ? 'CENTRAL_ADMIN' : 'CATEGORY_1');
   const [number, setNumber] = useState('');
@@ -80,6 +86,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [isContentVisible, setIsContentVisible] = useState(true);
 
   useEffect(() => {
     void supabase?.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? ''));
@@ -94,19 +101,22 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
 
   const load = useCallback(async () => {
     if (!supabase) { setError('La connexion Supabase est indisponible.'); setLoading(false); return; }
+    const requestId = ++loadRequestRef.current;
     setLoading(true); setError('');
+    setSlips([]); setLines([]); setGroups([]);
     const [schoolResult, yearResult, promotionResult] = await Promise.all([
       supabase.from('schools').select('id,department_id,code,name').eq('is_active', true).order('name'),
       supabase.from('school_years').select('id,label,code').eq('is_active', true).limit(1).maybeSingle(),
       supabase.from('promotions').select('id,label,code').eq('is_active', true).order('display_order').order('label'),
     ]);
+    if (requestId !== loadRequestRef.current) return;
     const firstError = schoolResult.error ?? yearResult.error ?? promotionResult.error;
     if (firstError) { setError(firstError.message); setLoading(false); return; }
     const nextSchools = (schoolResult.data ?? []) as School[];
     const nextYear = yearResult.data as Year | null;
     setSchools(nextSchools); setYear(nextYear); setPromotions((promotionResult.data ?? []) as Promotion[]);
     const nextSchoolId = nextSchools.some(item => item.id === schoolId) ? schoolId : nextSchools[0]?.id ?? '';
-    setSchoolId(nextSchoolId);
+    if (nextSchoolId !== schoolId) onSchoolChange(nextSchoolId);
     if (!nextSchoolId || !nextYear) {
       setGroups([]); setSlips([]); setLines([]); setLoading(false); return;
     }
@@ -114,6 +124,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
     const slipResult = await supabase.from('delivery_slips')
       .select('id,school_id,school_year_id,slip_number,delivery_date,status,observations,responsible_agent,created_by,creator_role,creator_full_name,validated_by,validated_at,organization_snapshot')
       .eq('school_id', nextSchoolId).order('created_at', { ascending: false });
+    if (requestId !== loadRequestRef.current) return;
     if (slipResult.error) { setError(slipResult.error.message); setLoading(false); return; }
     const nextSlips = (slipResult.data ?? []) as Slip[];
     setSlips(nextSlips);
@@ -126,6 +137,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
       nextSelected ? supabase.from('delivery_slip_lines').select('id,delivery_slip_id,promotion_id,group_code,quantity_delivered')
         .eq('delivery_slip_id', nextSelected).order('created_at') : Promise.resolve({ data: [], error: null }),
     ]);
+    if (requestId !== loadRequestRef.current) return;
     if (groupResult.error || lineResult.error) {
       setError(groupResult.error?.message ?? lineResult.error?.message ?? 'Impossible de charger les lignes du bordereau.');
       setLoading(false); return;
@@ -133,7 +145,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
     setGroups((groupResult.data ?? []) as PedagogicalGroup[]);
     setLines((lineResult.data ?? []) as Line[]);
     setLoading(false);
-  }, [schoolId, selectedSlipId]);
+  }, [schoolId, selectedSlipId, onSchoolChange]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -227,14 +239,34 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
   const printSlip = () => window.print();
 
   return <div className="delivery-module">
-    <div className="delivery-heading"><div><span className="delivery-eyebrow">GESTION DOCUMENTAIRE</span><h2><Truck/> Bordereaux de livraison</h2><p>Création, suivi, soumission et impression des bordereaux officiels.</p></div><button type="button" className="delivery-secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={15}/> Actualiser</button></div>
+    <div className="delivery-heading">
+      <div>
+        <h2><FilePlus2 size={20}/> Bordereaux de livraison</h2>
+        <p>Création, suivi, soumission et impression des bordereaux officiels.</p>
+      </div>
+      <button
+        type="button"
+        className="delivery-secondary"
+        aria-expanded={isContentVisible}
+        onClick={() => setIsContentVisible(visible => !visible)}
+      >
+        {isContentVisible ? <ChevronUp size={15}/> : <ChevronDown size={15}/>}
+        {isContentVisible ? 'Masquer' : 'Afficher'}
+      </button>
+    </div>
+    {isContentVisible && <div className="delivery-content">
+    <div className="delivery-legacy-refresh">
+      <button type="button" className="delivery-secondary" onClick={() => void load()} disabled={loading}>
+        <RefreshCw size={15}/> Actualiser
+      </button>
+    </div>
     {error && <div className="delivery-alert error">{error}</div>}
     {notice && <div className="delivery-alert success"><CheckCircle2 size={16}/>{notice}</div>}
     <div className="delivery-layout">
       <section className="delivery-panel">
         <h3><FilePlus2 size={17}/> Nouveau bordereau</h3>
         <form className="delivery-form" onSubmit={createSlip}>
-          <label>Établissement<select required value={schoolId} onChange={event => setSchoolId(event.target.value)}><option value="">Choisir un établissement</option>{schools.map(item => <option key={item.id} value={item.id}>{item.name} · {item.code}</option>)}</select></label>
+          <label>Établissement<select required value={schoolId} onChange={event => onSchoolChange(event.target.value)}><option value="">Choisir un établissement</option>{schools.map(item => <option key={item.id} value={item.id}>{item.name} · {item.code}</option>)}</select></label>
           <label>Année scolaire<input value={year?.label ?? 'Aucune année active'} readOnly/></label>
           <label>Rôle émetteur<select value={creatorRole} onChange={event => setCreatorRole(event.target.value as typeof creatorRole)} disabled={availableRoles.length <= 1}><option value="CENTRAL_ADMIN">Administration centrale</option><option value="CATEGORY_1">Catégorie 1</option><option value="CATEGORY_2">Catégorie 2</option></select></label>
           <label>Numéro du bordereau<input value={number} onChange={event => setNumber(event.target.value)} required maxLength={60} placeholder="Ex. BOR-2026-001"/></label>
@@ -246,7 +278,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
       </section>
       <section className="delivery-panel">
         <label className="delivery-school-filter">Établissement
-          <select value={schoolId} onChange={event => { setSchoolId(event.target.value); setSelectedSlipId(''); }}>
+          <select value={schoolId} onChange={event => { onSchoolChange(event.target.value); setSelectedSlipId(''); }}>
             <option value="">Choisir un établissement</option>
             {schools.map(item => <option key={item.id} value={item.id}>{item.name} · {item.code}</option>)}
           </select>
@@ -256,7 +288,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
       </section>
     </div>
     {selectedSlip && <section className="delivery-panel delivery-actions">
-      {selectedSlip.status === 'DRAFT' && <form className="delivery-add-line" onSubmit={addLine}><select value={groupId} onChange={event=>setGroupId(event.target.value)} required><option value="">Choisir un groupe pédagogique</option>{groups.map(group=><option key={group.id} value={group.id}>{promotionLabel(group.promotion_id)} · {group.group_code}</option>)}</select><input type="number" min="0" step="1" value={quantity} onChange={event=>setQuantity(event.target.value)} required placeholder="Quantité"/><button className="delivery-primary" disabled={busy || !canManageSelected}>Ajouter la ligne</button></form>}
+      {selectedSlip.status === 'DRAFT' && <form className="delivery-add-line" onSubmit={addLine}><select value={groupId} onChange={event=>setGroupId(event.target.value)} required><option value="">Choisir un groupe pédagogique</option>{groups.map(group=><option key={group.id} value={group.id}>{promotionLabel(group.promotion_id)} · {group.group_code}</option>)}</select><input type="number" min="1" step="1" value={quantity} onChange={event=>setQuantity(event.target.value)} required placeholder="Quantité"/><button className="delivery-primary" disabled={busy || !canManageSelected}>Ajouter la ligne</button></form>}
       {selectedSlip.status === 'DRAFT' && <button className="delivery-primary" onClick={()=>void transition('submit_delivery_slip')} disabled={busy || selectedLines.length===0}><Send size={15}/> Soumettre</button>}
       {canValidate && <button className="delivery-primary validate" onClick={()=>void transition('validate_delivery_slip')} disabled={busy}><ShieldCheck size={15}/> Valider (administration)</button>}
       <button className="delivery-secondary" onClick={printSlip}><Printer size={15}/> Imprimer / PDF</button>
@@ -286,5 +318,7 @@ export default function DeliverySlips({ memberships }: { memberships: Membership
         <section><h3>Cachet de l’établissement</h3><div className="delivery-stamp-box"/></section>
       </div>
     </section>}
+    </div>}
+    {selectedSlip && <DeliverySlipAdminTools slip={selectedSlip} lines={selectedLines} isAdmin={isAdmin} onRefresh={load} />}
   </div>;
 }

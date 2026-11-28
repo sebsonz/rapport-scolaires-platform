@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+      - run: npm install --include=optional
       - run: npm run build
       - run: npm run test
       - name: Report dependency advisories
@@ -62,6 +62,10 @@ jobs:
           for migration in supabase/migrations/*.sql; do
             echo "Applying $migration"
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+            if [[ "$migration" == "supabase/migrations/20261123000100_initial_school_reports_schema.sql" ]]; then
+              echo "Seeding Benin's 12 departments for the isolated migration test database"
+              psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "INSERT INTO public.departments (code, name) VALUES ('ALI', 'Alibori'), ('ATA', 'Atacora'), ('ATL', 'Atlantique'), ('BOR', 'Borgou'), ('COL', 'Collines'), ('COU', 'Couffo'), ('DON', 'Donga'), ('LIT', 'Littoral'), ('MON', 'Mono'), ('OUE', 'Ouémé'), ('PLA', 'Plateau'), ('ZOU', 'Zou') ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name;"
+            fi
           done
       - name: Test multi-department and operation rules
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/multi_department_operations_smoke.sql

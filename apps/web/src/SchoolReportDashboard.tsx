@@ -1,12 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   Activity, BookOpen, Building2, CheckCircle2, ClipboardList, GraduationCap,
-  History, LogOut, PackageCheck, RefreshCw, ShieldCheck, Truck, Users,
+  ChevronDown, ChevronUp, History, LogOut, PackageCheck, RefreshCw, ShieldCheck, Truck, Users,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import './SchoolReportDashboard.css';
 import SchoolPedagogicalClasses from './SchoolPedagogicalClasses';
 import DeliverySlips from './DeliverySlips';
+import AutomaticDeliverySlips from './AutomaticDeliverySlips';
 const SchoolCorrectionReasons = lazy(() => import('./features/school-correction-reasons/SchoolCorrectionReasons'));
 
 type Membership = { department_id: string | null; role: 'CENTRAL_ADMIN' | 'CATEGORY_1' | 'CATEGORY_2' };
@@ -61,6 +62,7 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [classDetailsVisible, setClassDetailsVisible] = useState(true);
 
   const selectedSchoolForRole = schools.find(item => item.id === schoolId);
   const scopedRoles = new Set(memberships
@@ -313,6 +315,23 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
     } finally { setBusy(false); }
   }
 
+  const handleDeliverySlipSchoolChange = useCallback((nextSchoolId: string) => {
+    const nextSchool = schools.find(item => item.id === nextSchoolId);
+    if (!nextSchool || nextSchool.id === schoolIdRef.current) return;
+    schoolIdRef.current = nextSchool.id;
+    setSchoolId(nextSchool.id);
+    setSelectedDepartmentId(nextSchool.department_id);
+    setSelectedCommune(nextSchool.commune_id ?? '');
+    setSelectedGroup('');
+    setEntryType('INITIAL');
+    setCapacity('');
+    setInitialEnrollment('');
+    setQuantity('');
+    setNote('');
+    setNotice('');
+    setError('');
+    void load(true, nextSchool.id);
+  }, [schools, load]);
   const fmt = (value: number) => value.toLocaleString('fr-FR');
   const enrollmentRate = totals.capacity ? totals.enrolled / totals.capacity * 100 : 0;
   const deliveryRate = totals.enrolled ? totals.delivered / totals.enrolled * 100 : 0;
@@ -383,11 +402,23 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
             <article className="report-panel report-distribution"><h3>Répartition des effectifs</h3><div className="report-donut" style={{'--enrolled': `${Math.min(enrollmentRate,100)}%`} as React.CSSProperties}><b>{fmt(totals.capacity)}</b><small>Effectif total</small></div><div className="report-legend"><span>Initial : {fmt(totals.initial)}</span><span>Ratissage : {fmt(totals.ratissage)}</span><span>Corrections : {fmt(totals.correction)}</span><span>Reste à enrôler : {fmt(totals.enrollmentRemaining)}</span></div></article>
             <article className="report-panel"><h3>Livraison par type</h3><div className="report-bars"><Bar label="Initiale" value={totals.deliveredInitial}/><Bar label="Ratissage" value={totals.deliveredRatissage}/><Bar label="Correction" value={totals.deliveredCorrection}/></div></article>
           </section>
-          <section className="report-panel report-classes" id="classes"><h3>Détail par classe <small>Suivi complet et partagé</small></h3>
-            <div className="report-table-wrap"><table><thead><tr><th>Classe / groupe</th><th>Effectif</th><th>Initial</th><th>Ratissage</th><th>Correction</th><th>Total enrôlé</th><th>Livré initial</th><th>Livré ratissage</th><th>Livré correction</th><th>Total livré</th><th>Reste enrôler</th><th>Reste livrer</th><th>Taux livraison</th></tr></thead><tbody>
+          <section className="report-panel report-classes" id="classes">
+            <div className="report-section-heading">
+              <h3>Détail par classe <small>Suivi complet et partagé</small></h3>
+              <button
+                type="button"
+                className="report-section-toggle"
+                aria-expanded={classDetailsVisible}
+                onClick={() => setClassDetailsVisible(visible => !visible)}
+              >
+                {classDetailsVisible ? <ChevronUp size={15}/> : <ChevronDown size={15}/>}
+                {classDetailsVisible ? 'Masquer' : 'Afficher'}
+              </button>
+            </div>
+            {classDetailsVisible && <div className="report-table-wrap"><table><thead><tr><th>Classe / groupe</th><th>Effectif</th><th>Initial</th><th>Ratissage</th><th>Correction</th><th>Total enrôlé</th><th>Livré initial</th><th>Livré ratissage</th><th>Livré correction</th><th>Total livré</th><th>Reste enrôler</th><th>Reste livrer</th><th>Taux livraison</th></tr></thead><tbody>
               {rows.map(r => <tr key={r.group.id}><td><b>{r.promotion?.label ?? r.promotion?.code ?? '—'}</b></td><td>{fmt(r.capacity)}</td><td>{fmt(r.initial)}</td><td>{fmt(r.ratissage)}</td><td>{fmt(r.correction)}</td><td className="good">{fmt(r.enrolled)}</td><td>{fmt(r.deliveredInitial)}</td><td>{fmt(r.deliveredRatissage)}</td><td>{fmt(r.deliveredCorrection)}</td><td className="good">{fmt(r.delivered)}</td><td>{fmt(r.enrollmentRemaining)}</td><td className={r.deliveryRemaining < 0 ? 'bad' : ''}>{fmt(r.deliveryRemaining)}</td><td>{r.enrolled ? `${r.deliveryRate.toFixed(1)} %` : '—'}</td></tr>)}
               <tr className="report-total"><td>Total</td><td>{fmt(totals.capacity)}</td><td>{fmt(totals.initial)}</td><td>{fmt(totals.ratissage)}</td><td>{fmt(totals.correction)}</td><td>{fmt(totals.enrolled)}</td><td>{fmt(totals.deliveredInitial)}</td><td>{fmt(totals.deliveredRatissage)}</td><td>{fmt(totals.deliveredCorrection)}</td><td>{fmt(totals.delivered)}</td><td>{fmt(totals.enrollmentRemaining)}</td><td>{fmt(totals.deliveryRemaining)}</td><td>{deliveryRate.toFixed(1)} %</td></tr>
-            </tbody></table>{rows.length === 0 && <div className="report-empty">Aucune classe n’est encore affectée à cet établissement pour l’année active.</div>}</div>
+            </tbody></table>{rows.length === 0 && <div className="report-empty">Aucune classe n’est encore affectée à cet établissement pour l’année active.</div>}</div>}
           </section>
           <section className="report-entry-grid" id="collecte">
             <form className={`report-panel report-entry ${activeEntryCategory === 'CATEGORY_2' ? 'report-entry-delivery' : ''}`} onSubmit={submit}>
@@ -410,7 +441,11 @@ export default function SchoolReportDashboard({ memberships, onSignOut, onBackTo
             </form>
             <article className="report-panel report-history" id="historique"><h3><History/> Dernières opérations</h3>{operations.slice(0,8).map(op => <div className="report-history-row" key={op.id}><span>{operationLabels[op.operation_type] ?? op.operation_type}</span><b>{fmt(op.quantity)}</b><small>{new Date(op.created_at).toLocaleString('fr-FR')}</small></div>)}{operations.length === 0 && <div className="report-empty">Aucune opération enregistrée.</div>}</article>
           </section>
-          <section id="bordereaux"><DeliverySlips memberships={memberships}/></section>
+          <section id="bordereaux"><DeliverySlips memberships={memberships} selectedSchoolId={school.id} onSchoolChange={handleDeliverySlipSchoolChange}/>{(memberships.some(item => item.role === 'CENTRAL_ADMIN') || memberships.some(item => item.role === 'CATEGORY_2')) && <AutomaticDeliverySlips
+            memberships={memberships}
+            selectedSchoolId={school.id}
+            onSchoolChange={handleDeliverySlipSchoolChange}
+          />}</section>
           {canReadCorrectionReasons && <section id="motifs-modification">
             <Suspense fallback={<div className="report-loading">Chargement des motifs de modification…</div>}>
               <SchoolCorrectionReasons schoolId={school.id} schoolName={school.name} permissions={{ canRead: true, canCreate: canManageCorrectionReasons, canUpdate: canManageCorrectionReasons, canDelete: canManageCorrectionReasons }}/>
