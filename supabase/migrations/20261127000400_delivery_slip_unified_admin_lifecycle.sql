@@ -73,7 +73,7 @@ RETURNS public.delivery_slip_lines
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path=public,auth,pg_temp
 SET row_security=off
-AS $
+AS $$
 DECLARE
   v_slip public.delivery_slips;
   v_department uuid;
@@ -161,7 +161,7 @@ BEGIN
   );
   RETURN v_result;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.add_delivery_slip_line(uuid,uuid,text,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.add_delivery_slip_line(uuid,uuid,text,integer) TO authenticated;
 
